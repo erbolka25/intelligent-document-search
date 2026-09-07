@@ -1,0 +1,13 @@
+pyproject.toml
+src/main.py
+src/document_search/core.py
+src/document_search/evaluation.py
+src/document_search/generation.py
+src/document_search/ingestion.py
+src/document_search/retrieval.py
+src/document_search/utils.py
+src/inteligent_document_searcher.egg-info/PKG-INFO
+src/inteligent_document_searcher.egg-info/SOURCES.txt
+src/inteligent_document_searcher.egg-info/dependency_links.txt
+src/inteligent_document_searcher.egg-info/requires.txt
+src/inteligent_document_searcher.egg-info/top_level.txt

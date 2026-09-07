@@ -1,0 +1,15 @@
+[project]
+name = "inteligent-document-searcher"
+requires-python = ">=3.12"
+description = "it is a RAG project that help search documents and work with them"
+version = "0.1.0"
+readme = "README.md"
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "ruff",
+    "mypy",
+    "pytest-cov",
+    "black"
+]

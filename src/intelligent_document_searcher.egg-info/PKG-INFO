@@ -1,0 +1,12 @@
+Metadata-Version: 2.4
+Name: inteligent-document-searcher
+Version: 0.1.0
+Summary: it is a RAG project that help search documents and work with them
+Requires-Python: >=3.12
+Description-Content-Type: text/markdown
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: ruff; extra == "dev"
+Requires-Dist: mypy; extra == "dev"
+Requires-Dist: pytest-cov; extra == "dev"
+Requires-Dist: black; extra == "dev"
