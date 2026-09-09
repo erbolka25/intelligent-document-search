@@ -57,3 +57,25 @@ def average(numbers: list[float])->float:
    if count == 0:
        return 0.0  
    return total_sum / count
+
+def truncate(text: str, max_length: int) -> str:
+    if len(text) <= max_length:
+        return text
+    if max_length <= 3:
+        return "..."  # Если лимит слишком маленький, просто возвращаем точки
+    return text[:max_length - 3] + "..."
+
+def is_probably_sentence_end(char: str) -> bool:
+    return char in {'.', '!', '?'}
+
+
+def count_tokens_approx(text:str)->int:
+  length = len(text)
+  length = length // 4
+  return length
+def split_sentences(text:str)->list:
+    return [s.strip()for s in text.split('.') if s.strip()]
+def get_snippet(text:str, index:int, window:int)->str:
+    start = max(0, index - window)
+    end = index + window + 1
+    return text[start:end]
