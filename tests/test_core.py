@@ -80,4 +80,37 @@ def test_get_snippet():
     assert get_snippet(text, 5, 10) == "This is a sample"
     assert get_snippet(text, 0, 5) == "This i"
     assert get_snippet(text, 50, 5) == "ppet functi"
-    
+def test_top_n():
+    from document_search.core import top_n
+    items = ['a', 'b', 'c', 'd']
+    scores = [0.1, 0.4, 0.3, 0.2]
+    assert top_n(items, scores, 2) == ['b', 'c']
+    assert top_n(items, scores, 0) == []
+    assert top_n(items, scores, 5) == ['b', 'c', 'd', 'a']
+def test_chunking_list():
+    from document_search.core import chunking_list
+    items = [1, 2, 3, 4, 5, 6, 7]
+    assert chunking_list(items, 3) == [[1, 2, 3], [4, 5, 6], [7]]
+def test_dedupe_preserve_order():
+    from document_search.core import dedupe_preserve_order
+    items = [1, 2, 3, 2, 1, 4, 5]
+    assert dedupe_preserve_order(items) == [1, 2, 3, 4, 5]
+    items = ['a', 'b', 'a', 'c', 'b']
+    assert dedupe_preserve_order(items) == ['a', 'b', 'c']
+    items = []
+    assert dedupe_preserve_order(items) == []
+def test_long_chunks():
+    from document_search.core import long_chunks
+    chunks = ["short", "this is a long chunk of text that exceeds fifty characters in length", "another short one", "yet another long chunk that should be included in the result"]
+    assert long_chunks(chunks) == ["this is a long chunk of text that exceeds fifty characters in length", "yet another long chunk that should be included in the result"]
+    chunks = ["short1", "short2", "short3"]
+    assert long_chunks(chunks) == []
+def test_flatten():
+    from document_search.core import flatten
+    list_of_lists = [[1, 2], [3, 4], [5]]
+    assert flatten(list_of_lists) == [1, 2, 3, 4, 5]
+    list_of_lists = [["a", "b"], ["c"], ["d", "e", "f"]]
+    assert flatten(list_of_lists) == ["a", "b", "c", "d", "e", "f"]
+    list_of_lists = []
+    assert flatten(list_of_lists) == []
+

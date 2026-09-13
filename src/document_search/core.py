@@ -79,3 +79,20 @@ def get_snippet(text:str, index:int, window:int)->str:
     start = max(0, index - window)
     end = index + window + 1
     return text[start:end]
+def top_n(items:list,scores:list, n:int)->list:
+    return [item for item, score in sorted(zip(items, scores), key=lambda x: x[1], reverse=True)[:n]]
+def chunking_list(items:list, chunk_size:int)->list:
+    return [items[i:i + chunk_size] for i in range(0, len(items), chunk_size)]
+def dedupe_preserve_order(items:list)-> list:
+    seen = set()
+    result = []
+    for item in items:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
+def long_chunks(chunks:list)->list:
+    return [c for c in chunks if len(c)>50]
+def flatten(list_of_lists:list)->list:
+    return [item for sublist in list_of_lists for item in sublist]
+
