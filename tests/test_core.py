@@ -113,4 +113,60 @@ def test_flatten():
     assert flatten(list_of_lists) == ["a", "b", "c", "d", "e", "f"]
     list_of_lists = []
     assert flatten(list_of_lists) == []
-
+def test_build_doc_index():
+    from document_search.core import build_doc_index
+    docs = [
+        {'id': 'doc1', 'content': 'This is the first document.'},
+        {'id': 'doc2', 'content': 'This is the second document.'},
+        {'id': 'doc3', 'content': 'This is the third document.'}
+    ]
+    expected_index = {
+    'doc1': 'This is the first document.',
+    'doc2': 'This is the second document.',
+    'doc3': 'This is the third document.'
+   }
+    assert build_doc_index(docs) == expected_index
+def test_word_frequency():
+    from document_search.core import word_frequency
+    text = "This is a test. This test is only a test."
+    expected_freq = {
+        'this': 2,
+        'is': 2,
+        'a': 2,
+        'test': 3,
+        'only': 1
+    }
+    
+    assert word_frequency(text) == expected_freq
+def test_find_common_words():
+    from document_search.core import find_common_words
+    text1 = "This is a test."
+    text2 = "This test is only a test."
+    expected_common = {'this', 'is', 'a', 'test'}
+    assert find_common_words(text1, text2) == expected_common
+def test_is_duplicate():
+    from document_search.core import is_duplicate
+    hashes_storage = set()
+    text1 = "This is a test."
+    text2 = "This is a test."
+    text3 = "Completely different text."
+    assert is_duplicate(text1, hashes_storage) == False
+    assert is_duplicate(text2, hashes_storage) == True
+    assert is_duplicate(text3, hashes_storage) == False
+def test_inverted_index():
+    from document_search.core import inverted_index
+    docs = [
+        {'id': 'doc1', 'content': 'This is the first document.'},
+        {'id': 'doc2', 'content': 'This is the second document.'},
+        {'id': 'doc3', 'content': 'This is the third document.'}
+    ]
+    expected_index = {
+        'this': {'doc1', 'doc2', 'doc3'},
+        'is': {'doc1', 'doc2', 'doc3'},
+        'the': {'doc1', 'doc2', 'doc3'},
+        'first': {'doc1'},
+        'document': {'doc1', 'doc2', 'doc3'},
+        'second': {'doc2'},
+        'third': {'doc3'}
+    }
+    assert inverted_index(docs) == expected_index
