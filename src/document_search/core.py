@@ -95,4 +95,36 @@ def long_chunks(chunks:list)->list:
     return [c for c in chunks if len(c)>50]
 def flatten(list_of_lists:list)->list:
     return [item for sublist in list_of_lists for item in sublist]
-
+def build_doc_index(docs:list[dict])->dict:
+    return {doc['id']: doc ["content"] for doc in docs}
+def word_frequency(text:str)->dict:
+    words = text.split()
+    freq = {}
+    for word in words:
+        word = word.lower()
+        word = word.strip('.,!?;:')  # Remove punctuatio
+        freq[word] = freq.get(word, 0) + 1
+    return freq
+def find_common_words(text1:str, text2:str)->set:
+    clean_1=text1.lower().replace('.','')
+    clean_2=text2.lower().replace('.','')
+    words1 = set(clean_1.split())
+    words2 = set(clean_2.split())
+    return words1.intersection(words2)
+def is_duplicate(content:str,seen_hashes:set)->bool:
+    content_hash = hash(content)
+    if content_hash in seen_hashes:
+        return True
+    seen_hashes.add(content_hash)
+    return False
+def inverted_index(docs:list[dict])->dict:
+    index = {}
+    for doc in docs:
+        doc_id = doc['id']
+        words = doc['content'].lower().split()
+        for word in words:
+            word = word.strip('.,!?;:')  # Remove punctuation
+            if word not in index:
+                index[word] = set()
+            index[word].add(doc_id)
+    return index
