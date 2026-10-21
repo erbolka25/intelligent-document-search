@@ -6,6 +6,7 @@ from document_search.generation import (
     BaseLLMClient,
     LLMError,
     build_user_prompt,
+    detect_language,
     extract_citations,
     generate_answer,
 )
@@ -40,7 +41,27 @@ def test_prompt_numbers_sources_with_location():
     assert '<source id="1" file="file0.pdf" page="1">' in prompt
     assert '<source id="2" file="file1.pdf" chunk="1">' in prompt
     assert '<source id="3" file="file2.pdf" page="7">' in prompt
-    assert prompt.endswith("Question: Вопрос?")
+    assert "Question: Вопрос?\n\nThe question is in Russian." in prompt
+
+
+@pytest.mark.parametrize(
+    "question, language",
+    [
+        ("Сколько дней отпуска?", "Russian"),
+        ("How often do I change my password?", "English"),
+        ("Өргүү канча күн?", "Kyrgyz"),
+        ("Что такое VPN?", "Russian"),
+        ("2 + 2", None),
+    ],
+)
+def test_detect_language(question, language):
+    assert detect_language(question) == language
+
+
+def test_prompt_names_question_language_after_question():
+    prompt = build_user_prompt("How many vacation days?", RESULTS)
+    assert prompt.endswith("Write the entire answer in English, "
+                           "translating facts from the sources if they are in another language.")
 
 
 def test_extract_citations_dedupes_and_ignores_out_of_range():
