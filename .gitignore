@@ -3,3 +3,24 @@ __pycache__/
 .venv/
 venv/
 .vscode/
+
+# Packaging
+*.egg-info/
+build/
+dist/
+
+# Secrets
+.env
+
+# Runtime data
+data/uploads/
+data/index/
+
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+
+# Machine-specific evaluation output
+data/eval/report.json
