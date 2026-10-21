@@ -52,7 +52,14 @@ class SentenceTransformerEmbedder(BaseEmbedder):
                 from sentence_transformers import SentenceTransformer
 
                 logger.info("Loading embedding model %s", self.model_name)
-                self._model = SentenceTransformer(self.model_name, device="cpu")
+                # Local cache first: no network calls, faster startup, works offline.
+                try:
+                    self._model = SentenceTransformer(
+                        self.model_name, device="cpu", local_files_only=True
+                    )
+                except OSError:
+                    logger.info("Model %s is not cached yet: downloading it", self.model_name)
+                    self._model = SentenceTransformer(self.model_name, device="cpu")
             return self._model
 
     def _encode(self, texts: list[str]) -> np.ndarray:
