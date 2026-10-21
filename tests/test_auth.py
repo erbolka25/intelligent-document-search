@@ -31,8 +31,11 @@ def test_api_requires_session(anon, method, path):
 def test_pages_redirect_to_login(anon):
     resp = anon.get("/?lang=ky", follow_redirects=False)
     assert resp.status_code == 303 and resp.headers["location"] == "/login?lang=ky"
-    assert anon.get("/login").status_code == 200
+    login_page = anon.get("/login")
+    assert login_page.status_code == 200 and login_page.headers["cache-control"] == "no-store"
     assert anon.get("/static/app.css").status_code == 200
+    assert anon.get("/static/common.js").status_code == 200
+    assert anon.get("/static/i18n.json").status_code == 200
 
 
 @pytest.mark.parametrize("body", [{"password": "wrong"}, {"password": PASSWORD + " "}])
