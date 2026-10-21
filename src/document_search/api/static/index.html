@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Поиск по документам</title>
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Поиск по документам</h1>
+    <div class="status" id="status"><span class="pill">загрузка…</span></div>
+  </header>
+
+  <section class="card">
+    <h2>1. Загрузите документы</h2>
+    <label class="drop" id="drop">
+      <input type="file" id="file" accept=".txt,.pdf" multiple>
+      Перетащите сюда файлы <b>.txt</b> или <b>.pdf</b> или нажмите, чтобы выбрать
+    </label>
+    <div id="uploadMsg"></div>
+    <ul class="docs" id="docs"></ul>
+  </section>
+
+  <section class="card">
+    <div class="tabs" role="tablist">
+      <button class="tab active" data-mode="ask" role="tab">Задать вопрос</button>
+      <button class="tab" data-mode="search" role="tab">Семантический поиск</button>
+    </div>
+    <form class="query" id="queryForm">
+      <input id="query" autocomplete="off" maxlength="2000" placeholder="Например: сколько дней длится отпуск?">
+      <button class="primary" id="go" type="submit">Спросить</button>
+    </form>
+    <p class="hint" id="hint">Ответ строится только по загруженным документам, с указанием источников.</p>
+    <div id="output"></div>
+  </section>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

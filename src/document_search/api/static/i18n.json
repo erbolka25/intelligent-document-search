@@ -1,0 +1,34 @@
+{
+  "en": {
+    "errors": {
+      "unauthorized": "Please sign in to continue.",
+      "invalid_password": "Wrong password.",
+      "login_not_configured": "Sign-in is not configured on the server. Contact the administrator.",
+      "rate_limited": "Too many requests. Try again in {seconds} s.",
+      "unsupported_type": "Only .pdf and .txt files are supported.",
+      "file_too_large": "The file is too large. The limit is {max_mb} MB.",
+      "empty_file": "The file is empty.",
+      "not_a_pdf": "This file is not a valid PDF.",
+      "not_text": "This file does not look like plain text.",
+      "bad_encoding": "The text file must be UTF-8 or Windows-1251.",
+      "corrupted_pdf": "The PDF is damaged, encrypted or cannot be opened.",
+      "no_text": "No readable text found. Scanned PDFs are not supported.",
+      "too_many_documents": "The document limit ({max_documents}) is reached. Delete some documents first.",
+      "not_found": "Not found.",
+      "method_not_allowed": "This action is not allowed.",
+      "validation_error": "Please check the input and try again.",
+      "internal_error": "Something went wrong on our side. Reference: {request_id}."
+    },
+    "notices": {
+      "llm_disabled": "AI answers are turned off. Showing the most relevant passages instead.",
+      "auth": "The AI service is not available right now. Showing the most relevant passages instead.",
+      "quota": "The AI service is not available right now. Showing the most relevant passages instead.",
+      "rate_limit": "The AI service is busy. Showing the most relevant passages; try again in a minute.",
+      "network": "Could not reach the AI service. Showing the most relevant passages instead.",
+      "model": "The AI service is not available right now. Showing the most relevant passages instead.",
+      "refusal": "The AI could not answer this question. Showing the most relevant passages instead.",
+      "empty": "The AI returned no answer. Showing the most relevant passages instead.",
+      "api": "The AI service had a problem. Showing the most relevant passages instead."
+    }
+  }
+}
