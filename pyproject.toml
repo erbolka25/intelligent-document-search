@@ -1,9 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "inteligent-document-searcher"
 requires-python = ">=3.12"
 description = "it is a RAG project that help search documents and work with them"
 version = "0.1.0"
 readme = "README.md"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+    "python-multipart>=0.0.9",
+    "pydantic-settings>=2.4",
+    "pymupdf>=1.26",
+    "numpy>=2.1",
+    "faiss-cpu>=1.9",
+    "sentence-transformers>=3.0",
+    "anthropic>=0.40",
+    "openai>=2.0",
+    "itsdangerous>=2.2",
+]
 
 [project.optional-dependencies]
 dev = [
@@ -11,5 +28,20 @@ dev = [
     "ruff",
     "mypy",
     "pytest-cov",
-    "black"
+    "black",
+    "httpx",
 ]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+document_search = ["api/static/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["faiss: tests that require faiss-cpu"]
+
+[tool.ruff]
+line-length = 100
+extend-exclude = ["venv", "src/*.egg-info"]

@@ -1,3 +1,6 @@
+import random
+
+
 def clean_text(raw_text: str) -> str:
     """
     Cleans the input text by collapsing extra whitespace, tabs and line breaks
@@ -128,3 +131,38 @@ def inverted_index(docs:list[dict])->dict:
                 index[word] = set()
             index[word].add(doc_id)
     return index
+def classify_score(score:float)->str:
+    if score < 0.5:
+        return "low"
+    elif score < 0.8:
+        return "medium"
+    else:
+        return "high"
+def retry_with_limit(max_attempts: int) -> bool:
+    attempts = 0
+    success = False  # Создаем флаг успеха перед циклом
+    
+    while attempts < max_attempts:
+        attempts += 1
+        success = random.random() < 0.5
+        if success:
+            break  # Выходим из цикла по условию, если success == True
+            
+    return success  # Возвращаем сам флаг (он будет True, если сработал break, и False, если попытки кончились) 
+def build_length_index(docs:list[dict])->dict:
+    return {doc['id']: len(doc['content']) for doc in docs}
+def filter_by_threshold(results:list[tuple], threshold:float)->list:
+    return [doc_id for doc_id, score in results if score >= threshold]
+def chunk_generation(text:str, chunk_size:int)->list:
+    if chunk_size <= 0:
+        return
+    for i in range(0, len(text), chunk_size):
+        yield text[i:i + chunk_size]
+
+def search(query: str, top_k: int = 5, *, rerank: bool = False) -> dict:
+     erbol = {
+        "query": query,
+        "top_k": top_k,
+        "rerank": rerank
+    }
+     return erbol
