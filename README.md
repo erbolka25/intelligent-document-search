@@ -21,7 +21,7 @@ question ─► embedding ─► top-k chunks ─► LLM (OpenAI or Anthropic) w
 
 ## Quick start (Windows, PowerShell)
 
-Requires Python 3.12+ and about 2.5 GB of free disk space. The first run downloads the embedding model (~470 MB), so do it while online, before the demo.
+Requires Python 3.12+ and about 2.5 GB of free disk space. The embedding model (~470 MB) is downloaded once, so do it while online, before the demo. After that, the app loads it from the local cache and needs the internet only for LLM answers.
 
 ```powershell
 python -m venv venv
@@ -44,7 +44,7 @@ uvicorn document_search.api.app:app --port 8000
 
 If PowerShell refuses to run `Activate.ps1`, run `Set-ExecutionPolicy -Scope Process Bypass` in the same window first. Alternatively, skip activation and start the server with `.\venv\Scripts\python.exe -m uvicorn document_search.api.app:app --port 8000`.
 
-Open http://localhost:8000 and sign in with `APP_PASSWORD`. The server is ready when the log prints `Application startup complete`. Loading the model takes about 30–80 seconds. Stop the server with `Ctrl+C`. Interactive API docs are at http://localhost:8000/docs (after sign-in).
+Open http://localhost:8000 and sign in with `APP_PASSWORD`. The server is ready when the log prints `Application startup complete`, which takes about 35–70 seconds. Start it a few minutes before a demo. Stop the server with `Ctrl+C`. Interactive API docs are at http://localhost:8000/docs (after sign-in).
 
 On Linux/macOS, use `source venv/bin/activate` and `cp .env.example .env`. Everything else is the same.
 
@@ -221,4 +221,4 @@ How to read this:
 - **Answer language** is detected from the question's alphabet (Latin → English, Cyrillic → Russian, ң/ө/ү → Kyrgyz). Mixed-language questions follow whichever alphabet dominates.
 - **Small embedding model.** It's fast on CPU, but on close paraphrases the right passage sometimes ranks 2nd–3rd instead of 1st. `/ask` sends the top 5 to the LLM, which compensates. A larger model (`multilingual-e5-base`/`-large`) is a one-line change, after which documents must be re-uploaded.
 - **Sentence splitting is rule-based.** It can split on some abbreviations, and a chunk may end with a dangling section number such as `3.`. The effect on retrieval is minor.
-- **Startup** loads the embedding model (30–80 s), and the Hugging Face library checks for model updates online.
+- **Startup takes about 35–70 s** on a laptop CPU. Most of it is importing PyTorch/transformers (~40 s). Loading the model itself takes ~8 s. After the first download the model loads from the local cache with no network calls, so search works offline. Without internet, `/ask` shows passages with a "could not reach the AI service" notice.
