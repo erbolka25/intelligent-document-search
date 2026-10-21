@@ -170,3 +170,49 @@ def test_inverted_index():
         'third': {'doc3'}
     }
     assert inverted_index(docs) == expected_index
+def test_classify_score():
+    from document_search.core import classify_score
+    assert classify_score(0.3) == "low"
+    assert classify_score(0.5) == "medium"
+    assert classify_score(0.75) == "medium"
+    assert classify_score(0.8) == "high"
+    assert classify_score(1.0) == "high"
+def test_retry_with_limit():
+    from document_search.core import retry_with_limit
+    # Since the function involves randomness, we can only test that it returns a boolean
+    result = retry_with_limit(5)
+    assert isinstance(result, bool)
+def test_build_length_index():
+    from document_search.core import build_length_index
+    docs = [
+        {'id': 'doc1', 'content': 'This is the first document.'},
+        {'id': 'doc2', 'content': 'This is the second document.'},
+        {'id': 'doc3', 'content': 'This is the third document.'}
+    ]
+    expected_length_index = {
+        'doc1': len('This is the first document.'),
+        'doc2': len('This is the second document.'),
+        'doc3': len('This is the third document.')
+    }
+    assert build_length_index(docs) == expected_length_index
+def test_filter_by_threshold():
+    from document_search.core import filter_by_threshold
+    results = [('doc1', 0.9), ('doc2', 0.5), ('doc3', 0.7), ('doc4', 0.3)]
+    threshold = 0.6
+    expected_filtered = ['doc1', 'doc3']
+    assert filter_by_threshold(results, threshold) == expected_filtered
+def test_chunk_generation():
+    from document_search.core import chunk_generation
+    text = "This is a sample text for testing the chunk generation function."
+    chunk_size = 10
+    expected_chunks = [
+        "This is a ",
+        "sample tex",
+        "t for test",
+        "ing the ch",
+        "unk genera",
+        "tion funct",
+        "ion."
+    ]
+    assert list(chunk_generation(text, chunk_size)) == expected_chunks
+    
