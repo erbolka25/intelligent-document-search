@@ -204,6 +204,20 @@ def test_invalid_queries(client, path, payload):
     assert body["error"] == "validation_error" and body["message"] and body["fields"]
 
 
+def test_body_that_is_not_utf8_is_a_client_error(client):
+    # Windows consoles can send Cyrillic as cp1251; that must not look like a server fault.
+    body = '{"query": "пароль"}'.encode("cp1251")
+    resp = client.post("/search", content=body, headers={"Content-Type": "application/json"})
+    assert resp.status_code == 400
+    assert resp.json()["error"] == "bad_request"
+
+
+def test_json_responses_declare_utf8(client):
+    # Windows PowerShell 5.1 decodes JSON without a charset as Latin-1.
+    for resp in (client.get("/stats"), client.post("/search", json={"query": ""})):
+        assert resp.headers["content-type"] == "application/json; charset=utf-8"
+
+
 def test_internal_error_hides_details(client, monkeypatch):
     def boom(*args, **kwargs):
         raise RuntimeError("secret path C:/internal/stuff")
