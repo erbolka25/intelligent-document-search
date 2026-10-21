@@ -42,6 +42,8 @@ from document_search.service import DocumentLimitError, RagService, build_servic
 logger = logging.getLogger("document_search.api")
 
 STATIC_DIR = Path(__file__).parent / "static"
+# Pages are never cached, so after sign-out the browser asks the server (and gets redirected).
+NO_STORE = {"Cache-Control": "no-store"}
 _UNSAFE_FILENAME_CHARS = re.compile(r"[^\w\-. ()]+")
 _DOC_ID = re.compile(r"^[0-9a-f]{16}$")
 
@@ -244,13 +246,13 @@ def create_app(service: RagService | None = None, settings: Settings | None = No
     # --- pages and auth -----------------------------------------------------
     @app.get("/", include_in_schema=False)
     async def index_page():
-        return FileResponse(STATIC_DIR / "index.html")
+        return FileResponse(STATIC_DIR / "index.html", headers=NO_STORE)
 
     @app.get("/login", include_in_schema=False)
     async def login_page(request: Request):
         if request.state.session_id:
             return RedirectResponse("/", 303)
-        return FileResponse(STATIC_DIR / "login.html")
+        return FileResponse(STATIC_DIR / "login.html", headers=NO_STORE)
 
     @app.post("/auth/login", response_model=OkResponse)
     def login(request: Request, body: LoginRequest):

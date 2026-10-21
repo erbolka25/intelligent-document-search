@@ -1,4 +1,8 @@
-"""Translations shared by the API and the UI, loaded from api/static/i18n.json."""
+"""Translations shared by the API and the UI, loaded from api/static/i18n.json.
+
+Each top-level key of the JSON file is a language. Adding a language means adding
+one more block with the same keys; tests/test_i18n.py checks that the keys match.
+"""
 
 from __future__ import annotations
 
@@ -12,14 +16,16 @@ from starlette.requests import Request
 logger = logging.getLogger(__name__)
 
 I18N_FILE = Path(__file__).parent / "api" / "static" / "i18n.json"
-LANGUAGES = ("ru", "en", "ky")
-DEFAULT_LANGUAGE = "en"
+DEFAULT_LANGUAGE = "ru"
 
 
 @lru_cache
 def catalog() -> dict[str, dict]:
-    data = json.loads(I18N_FILE.read_text(encoding="utf-8"))
-    return {lang: data[lang] for lang in LANGUAGES if lang in data}
+    return json.loads(I18N_FILE.read_text(encoding="utf-8"))
+
+
+def languages() -> tuple[str, ...]:
+    return tuple(catalog())
 
 
 def _lookup(tree: dict, key: str) -> str | None:
@@ -32,7 +38,7 @@ def _lookup(tree: dict, key: str) -> str | None:
 
 
 def translate(lang: str, key: str, **params: object) -> str:
-    """Translate a dotted key, falling back to English, then to the key itself."""
+    """Translate a dotted key, falling back to the default language, then to the key itself."""
     strings = catalog()
     text = _lookup(strings.get(lang, {}), key) or _lookup(strings.get(DEFAULT_LANGUAGE, {}), key)
     if text is None:
@@ -49,9 +55,10 @@ def request_language(request: Request) -> str:
     candidates = [request.query_params.get("lang"), request.headers.get("x-lang")]
     for part in request.headers.get("accept-language", "").split(","):
         candidates.append(part.split(";")[0].strip())
+    supported = languages()
     for value in candidates:
         if value:
             base = value.lower().split("-")[0]
-            if base in LANGUAGES:
+            if base in supported:
                 return base
     return DEFAULT_LANGUAGE

@@ -1,22 +1,27 @@
 <!doctype html>
-<html lang="ru">
+<html lang="ru" class="i18n-pending">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Вход</title>
+<title data-i18n="ui.login.title"></title>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/static/app.css">
+<script src="/static/common.js"></script>
 </head>
-<body>
-<div class="wrap">
-  <section class="card">
-    <h2>Вход</h2>
-    <form class="query" id="loginForm">
-      <input id="password" type="password" autocomplete="current-password" aria-label="Пароль" required>
-      <button class="primary" type="submit">Войти</button>
-    </form>
-    <div id="loginMsg"></div>
-  </section>
-</div>
+<body class="login-page">
+<div class="controls login-controls" id="controls"></div>
+<main class="login-card card">
+  <svg class="logo logo-lg" viewBox="0 0 32 32" aria-hidden="true"><rect x="5" y="3" width="17" height="22" rx="3"/><path d="M9 9h9M9 13h9M9 17h5"/><circle cx="21" cy="21" r="5"/><path d="M25 25l4 4"/></svg>
+  <h1 data-i18n="ui.app.title"></h1>
+  <p class="tagline" data-i18n="ui.app.tagline"></p>
+  <form id="loginForm">
+    <label class="field-label" for="password" data-i18n="ui.login.password"></label>
+    <input id="password" type="password" autocomplete="current-password" required>
+    <button class="primary" type="submit" data-i18n="ui.login.submit"></button>
+  </form>
+  <p class="hint" data-i18n="ui.login.subtitle"></p>
+  <div id="loginMsg"></div>
+</main>
 <script src="/static/login.js"></script>
 </body>
 </html>

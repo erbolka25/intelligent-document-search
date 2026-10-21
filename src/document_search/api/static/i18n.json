@@ -1,5 +1,171 @@
 {
+  "ru": {
+    "meta": { "name": "Русский" },
+    "ui": {
+      "app": {
+        "title": "Поиск по документам",
+        "tagline": "Ответы по вашим документам со ссылками на источники"
+      },
+      "controls": {
+        "language": "Язык",
+        "theme": "Тема",
+        "theme_auto": "Как в системе",
+        "theme_light": "Светлая",
+        "theme_dark": "Тёмная",
+        "logout": "Выйти"
+      },
+      "status": {
+        "loading": "загрузка…",
+        "documents": "документов: {n}",
+        "chunks": "фрагментов: {n}",
+        "index": "индекс: {name}",
+        "llm_on": "ИИ подключён",
+        "llm_off": "ИИ выключен: только поиск",
+        "offline": "сервер недоступен"
+      },
+      "upload": {
+        "heading": "1. Загрузите документы",
+        "drop": "Перетащите сюда файлы .txt или .pdf или нажмите, чтобы выбрать",
+        "uploading": "Загружаю {name}…",
+        "indexed": "{name}: проиндексирован, фрагментов: {chunks}",
+        "duplicate": "{name}: уже в индексе (фрагментов: {chunks})",
+        "skipped_pages": "не удалось прочитать страницы: {pages}",
+        "empty": "Документы ещё не загружены.",
+        "chunks_short": "фрагментов: {n}",
+        "delete": "Удалить {name}",
+        "delete_confirm": "Удалить «{name}» из индекса?",
+        "deleted": "{name}: удалён"
+      },
+      "query": {
+        "tab_ask": "Задать вопрос",
+        "tab_search": "Семантический поиск",
+        "button_ask": "Спросить",
+        "button_search": "Найти",
+        "label": "Ваш вопрос",
+        "placeholder_ask": "Например: сколько дней длится отпуск?",
+        "placeholder_search": "Например: как часто менять пароль",
+        "hint_ask": "Ответ строится только по загруженным документам, с указанием источников.",
+        "hint_search": "Поиск по смыслу, а не по точному совпадению слов.",
+        "empty_query": "Введите запрос.",
+        "thinking": "Ищу ответ…",
+        "searching": "Ищу…",
+        "no_results": "Ничего не найдено. Загрузите документы или переформулируйте запрос.",
+        "no_answer": "В документах нет ответа на этот вопрос.",
+        "sources_label": "Источники ответа",
+        "found_label": "Найденные фрагменты",
+        "nearest_label": "Наиболее близкие фрагменты",
+        "page": "стр. {n}",
+        "chunk": "фрагмент {n}",
+        "score_title": "Косинусное сходство: чем ближе к 1, тем ближе по смыслу",
+        "error_status": "Ошибка {status}"
+      },
+      "login": {
+        "title": "Вход",
+        "subtitle": "Введите пароль, который вам выдал администратор.",
+        "password": "Пароль",
+        "submit": "Войти",
+        "failed": "Не удалось войти. Попробуйте ещё раз."
+      }
+    },
+    "errors": {
+      "unauthorized": "Войдите, чтобы продолжить.",
+      "invalid_password": "Неверный пароль.",
+      "login_not_configured": "Вход на сервере не настроен. Обратитесь к администратору.",
+      "rate_limited": "Слишком много запросов. Повторите через {seconds} с.",
+      "unsupported_type": "Поддерживаются только файлы .pdf и .txt.",
+      "file_too_large": "Файл слишком большой. Ограничение: {max_mb} МБ.",
+      "empty_file": "Файл пустой.",
+      "not_a_pdf": "Этот файл не является корректным PDF.",
+      "not_text": "Этот файл не похож на обычный текст.",
+      "bad_encoding": "Текстовый файл должен быть в кодировке UTF-8 или Windows-1251.",
+      "corrupted_pdf": "PDF повреждён, защищён паролем или не открывается.",
+      "no_text": "Не найден читаемый текст. Сканированные PDF не поддерживаются.",
+      "too_many_documents": "Достигнут лимит документов ({max_documents}). Сначала удалите ненужные.",
+      "not_found": "Не найдено.",
+      "method_not_allowed": "Это действие не разрешено.",
+      "validation_error": "Проверьте введённые данные и попробуйте снова.",
+      "internal_error": "Что-то пошло не так на нашей стороне. Код: {request_id}."
+    },
+    "notices": {
+      "llm_disabled": "Ответы ИИ отключены. Показаны наиболее подходящие фрагменты.",
+      "auth": "Сервис ИИ сейчас недоступен. Показаны наиболее подходящие фрагменты.",
+      "quota": "Сервис ИИ сейчас недоступен. Показаны наиболее подходящие фрагменты.",
+      "rate_limit": "Сервис ИИ перегружен. Показаны подходящие фрагменты; повторите через минуту.",
+      "network": "Не удалось связаться с сервисом ИИ. Показаны наиболее подходящие фрагменты.",
+      "model": "Сервис ИИ сейчас недоступен. Показаны наиболее подходящие фрагменты.",
+      "refusal": "ИИ не смог ответить на этот вопрос. Показаны наиболее подходящие фрагменты.",
+      "empty": "ИИ не вернул ответ. Показаны наиболее подходящие фрагменты.",
+      "api": "В сервисе ИИ произошла ошибка. Показаны наиболее подходящие фрагменты."
+    }
+  },
   "en": {
+    "meta": { "name": "English" },
+    "ui": {
+      "app": {
+        "title": "Document Search",
+        "tagline": "Answers from your documents, with sources"
+      },
+      "controls": {
+        "language": "Language",
+        "theme": "Theme",
+        "theme_auto": "System",
+        "theme_light": "Light",
+        "theme_dark": "Dark",
+        "logout": "Sign out"
+      },
+      "status": {
+        "loading": "loading…",
+        "documents": "documents: {n}",
+        "chunks": "chunks: {n}",
+        "index": "index: {name}",
+        "llm_on": "AI connected",
+        "llm_off": "AI off: search only",
+        "offline": "server unavailable"
+      },
+      "upload": {
+        "heading": "1. Upload documents",
+        "drop": "Drop .txt or .pdf files here, or click to choose",
+        "uploading": "Uploading {name}…",
+        "indexed": "{name}: indexed, chunks: {chunks}",
+        "duplicate": "{name}: already indexed (chunks: {chunks})",
+        "skipped_pages": "could not read pages: {pages}",
+        "empty": "No documents uploaded yet.",
+        "chunks_short": "chunks: {n}",
+        "delete": "Delete {name}",
+        "delete_confirm": "Remove “{name}” from the index?",
+        "deleted": "{name}: deleted"
+      },
+      "query": {
+        "tab_ask": "Ask a question",
+        "tab_search": "Semantic search",
+        "button_ask": "Ask",
+        "button_search": "Search",
+        "label": "Your question",
+        "placeholder_ask": "For example: how many vacation days do I get?",
+        "placeholder_search": "For example: how often to change the password",
+        "hint_ask": "Answers use only the uploaded documents and cite their sources.",
+        "hint_search": "Search by meaning, not by exact words.",
+        "empty_query": "Enter a query.",
+        "thinking": "Looking for an answer…",
+        "searching": "Searching…",
+        "no_results": "Nothing found. Upload documents or rephrase the query.",
+        "no_answer": "The documents do not answer this question.",
+        "sources_label": "Answer sources",
+        "found_label": "Retrieved passages",
+        "nearest_label": "Closest passages",
+        "page": "p. {n}",
+        "chunk": "chunk {n}",
+        "score_title": "Cosine similarity: closer to 1 means closer in meaning",
+        "error_status": "Error {status}"
+      },
+      "login": {
+        "title": "Sign in",
+        "subtitle": "Enter the password your administrator gave you.",
+        "password": "Password",
+        "submit": "Sign in",
+        "failed": "Could not sign in. Please try again."
+      }
+    },
     "errors": {
       "unauthorized": "Please sign in to continue.",
       "invalid_password": "Wrong password.",
