@@ -83,6 +83,7 @@
       "too_many_documents": "Достигнут лимит документов ({max_documents}). Сначала удалите ненужные.",
       "not_found": "Не найдено.",
       "method_not_allowed": "Это действие не разрешено.",
+      "bad_request": "Не удалось прочитать запрос. Проверьте, что тело запроса — JSON в кодировке UTF-8.",
       "validation_error": "Проверьте введённые данные и попробуйте снова.",
       "internal_error": "Что-то пошло не так на нашей стороне. Код: {request_id}."
     },
@@ -182,6 +183,7 @@
       "too_many_documents": "The document limit ({max_documents}) is reached. Delete some documents first.",
       "not_found": "Not found.",
       "method_not_allowed": "This action is not allowed.",
+      "bad_request": "The request could not be read. Check that the body is valid UTF-8 JSON.",
       "validation_error": "Please check the input and try again.",
       "internal_error": "Something went wrong on our side. Reference: {request_id}."
     },

@@ -13,7 +13,8 @@ from typing import Annotated
 
 from fastapi import FastAPI, File, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import JSONResponse as _JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
@@ -60,6 +61,12 @@ SECURITY_HEADERS = {
         "frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
     ),
 }
+
+
+class JSONResponse(_JSONResponse):
+    """JSON with an explicit charset: Windows PowerShell 5.1 otherwise decodes it as Latin-1."""
+
+    media_type = "application/json; charset=utf-8"
 
 
 class ApiError(Exception):
@@ -145,6 +152,7 @@ def create_app(service: RagService | None = None, settings: Settings | None = No
         title="Document Search",
         version="0.2.0",
         lifespan=lifespan,
+        default_response_class=JSONResponse,
         responses={400: {"model": ErrorResponse}, 401: {"model": ErrorResponse}},
     )
     app.state.service = service
@@ -232,7 +240,9 @@ def create_app(service: RagService | None = None, settings: Settings | None = No
 
     @app.exception_handler(StarletteHTTPException)
     async def http_error(request: Request, exc: StarletteHTTPException):
-        code = {404: "not_found", 405: "method_not_allowed"}.get(exc.status_code, "internal_error")
+        # e.g. a body that is not valid UTF-8 JSON: the client's fault, not ours.
+        fallback = "bad_request" if 400 <= exc.status_code < 500 else "internal_error"
+        code = {404: "not_found", 405: "method_not_allowed"}.get(exc.status_code, fallback)
         return error_response(
             request, exc.status_code, code, request_id=getattr(request.state, "request_id", "")
         )
