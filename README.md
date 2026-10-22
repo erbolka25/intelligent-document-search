@@ -60,7 +60,7 @@ The index and uploads persist in the `app-data` volume. `data/` is not copied in
 ## Using the web UI
 
 - **Upload**: drag `.txt`/`.pdf` files onto the upload area. Each document shows its chunk count and a **×** button that deletes it (after confirmation). Re-uploading the same file is detected as a duplicate.
-- **Ask a question / Semantic search**: two tabs. *Ask* returns an answer with clickable `[n]` citations plus the retrieved passages. *Search* returns the closest passages with their cosine similarity.
+- **Ask a question / Semantic search**: two tabs. *Ask* returns an answer with clickable `[n]` citations plus the retrieved passages. If the documents don't answer, the closest passages stay collapsed behind *Show closest passages* and are marked as possibly unrelated. *Search* returns the closest passages. Each passage shows only its rank by closeness ("closeness: 1 of 5"), not the raw similarity score, because the score is not a confidence measure. The API still returns `score`.
 - **Header**: status pills (documents, chunks, index, whether the AI is connected), language (Русский / English), theme (system / light / dark) and **Sign out**. Language and theme are remembered in the browser.
 
 ## Demo script (5 steps)

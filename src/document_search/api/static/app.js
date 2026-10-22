@@ -84,17 +84,15 @@ function sourceLocation(r) {
   return r.page != null ? t("ui.query.page", { n: r.page }) : t("ui.query.chunk", { n: r.chunk_index + 1 });
 }
 
-function resultCard(r) {
-  const pct = Math.max(0, Math.min(100, Math.round(r.score * 100)));
-  const fill = el("i");
-  fill.style.width = `${pct}%`; // CSSOM, not a style attribute: the CSP forbids inline styles
+// Only the rank is shown: the raw similarity score reads like confidence, and it is not.
+function resultCard(r, total) {
   return el("div", { class: "result", id: `src-${r.rank}` },
     el("div", { class: "meta" },
       el("span", { class: "num" }, `[${r.rank}]`),
       el("span", { class: "src" }, r.filename),
       el("span", {}, sourceLocation(r)),
-      el("span", { class: "score", title: t("ui.query.score_title") },
-        el("span", { class: "bar" }, fill), r.score.toFixed(3)),
+      el("span", { class: "relevance", title: t("ui.query.rank_title") },
+        t("ui.query.rank_label", { n: r.rank, total })),
     ),
     el("p", { class: "text" }, r.text),
   );
@@ -126,7 +124,16 @@ function renderResults(out, results, labelKey) {
     out.append(message("warn", t("ui.query.no_results")));
     return;
   }
-  out.append(el("div", { class: "label" }, t(labelKey)), ...results.map(resultCard));
+  out.append(el("div", { class: "label" }, t(labelKey)), ...results.map((r) => resultCard(r, results.length)));
+}
+
+// Collapsed by default: when there is no answer, the nearest passages are likely off-topic.
+function closestPassages(results) {
+  const box = el("details", { class: "closest" },
+    el("summary", {}, t("ui.query.show_closest"), " ",
+      el("span", { class: "caveat" }, `(${t("ui.query.may_be_unrelated")})`)));
+  box.append(...results.map((r) => resultCard(r, results.length)));
+  return box;
 }
 
 function renderOutput() {
@@ -149,6 +156,10 @@ function renderOutput() {
         links.append(a);
       });
       out.append(el("div", { class: "label" }, t("ui.query.sources_label")), links);
+    }
+    if (!r.answer_found) {
+      if (r.results.length) out.append(closestPassages(r.results));
+      return;
     }
   } else if (r.notice) {
     // The server translated the notice for the language active when the request was sent.

@@ -101,9 +101,10 @@
   .meta { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
   .num { font-weight: 700; color: var(--accent); }
   .src { font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
-  .score { display: inline-flex; align-items: center; gap: 6px; }
-  .bar { width: 70px; height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; }
-  .bar i { display: block; height: 100%; background: var(--accent); }
+  .relevance { border-bottom: 1px dotted var(--muted); cursor: help; }
+  .closest { margin-top: 14px; }
+  .closest > summary { cursor: pointer; color: var(--accent); margin-bottom: 10px; }
+  .closest .caveat { color: var(--muted); }
   .text { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 
   /* login */

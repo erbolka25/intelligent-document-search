@@ -56,7 +56,10 @@
         "nearest_label": "Наиболее близкие фрагменты",
         "page": "стр. {n}",
         "chunk": "фрагмент {n}",
-        "score_title": "Косинусное сходство: чем ближе к 1, тем ближе по смыслу",
+        "rank_label": "по близости: {n} из {total}",
+        "rank_title": "Место фрагмента среди найденных по смысловой близости к запросу. Это только порядок, а не уверенность: даже первый фрагмент может не отвечать на вопрос.",
+        "show_closest": "Показать ближайшие фрагменты",
+        "may_be_unrelated": "могут быть не связаны с вопросом",
         "error_status": "Ошибка {status}"
       },
       "network": {
@@ -161,7 +164,10 @@
         "nearest_label": "Closest passages",
         "page": "p. {n}",
         "chunk": "chunk {n}",
-        "score_title": "Cosine similarity: closer to 1 means closer in meaning",
+        "rank_label": "closeness: {n} of {total}",
+        "rank_title": "Where this passage ranks among the results by closeness in meaning to the query. It is only an order, not confidence: even the first passage may not answer the question.",
+        "show_closest": "Show closest passages",
+        "may_be_unrelated": "may be unrelated",
         "error_status": "Error {status}"
       },
       "network": {
