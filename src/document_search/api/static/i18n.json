@@ -59,6 +59,11 @@
         "score_title": "Косинусное сходство: чем ближе к 1, тем ближе по смыслу",
         "error_status": "Ошибка {status}"
       },
+      "network": {
+        "unreachable": "Не удалось связаться с сервером. Попробуйте ещё раз.",
+        "timeout": "Сервер слишком долго не отвечает. Попробуйте ещё раз.",
+        "bad_response": "Сервер прислал непонятный ответ. Попробуйте ещё раз."
+      },
       "login": {
         "title": "Вход",
         "subtitle": "Введите пароль, который вам выдал администратор.",
@@ -158,6 +163,11 @@
         "chunk": "chunk {n}",
         "score_title": "Cosine similarity: closer to 1 means closer in meaning",
         "error_status": "Error {status}"
+      },
+      "network": {
+        "unreachable": "Could not reach the server. Please try again.",
+        "timeout": "The server took too long to respond. Please try again.",
+        "bad_response": "The server sent an unexpected response. Please try again."
       },
       "login": {
         "title": "Sign in",

@@ -84,16 +84,43 @@
     return node;
   }
 
+  // /ask waits for the LLM, which can take a while; past this the request counts as failed.
+  const API_TIMEOUT_MS = 90000;
+  // Statuses a proxy returns when the app itself is down.
+  const UNREACHABLE_STATUSES = [502, 503, 504];
+
+  // Browser errors ("Failed to fetch", "NetworkError ...") never reach the user.
+  function networkError(e) {
+    return new Error(t(e && e.name === "TimeoutError" ? "ui.network.timeout" : "ui.network.unreachable"));
+  }
+
   async function api(path, options = {}) {
     const headers = { "X-Lang": lang, ...(options.headers || {}) };
-    const resp = await fetch(path, { ...options, headers });
+    const signal = typeof AbortSignal.timeout === "function" ? AbortSignal.timeout(API_TIMEOUT_MS) : undefined;
+    let resp;
+    try {
+      resp = await fetch(path, { signal, ...options, headers });
+    } catch (e) {
+      throw networkError(e);
+    }
     if (resp.status === 401 && !path.startsWith("/auth/")) {
       location.href = "/login";
       throw new Error("unauthorized");
     }
     let body = null;
-    try { body = await resp.json(); } catch { /* non-JSON body */ }
-    if (!resp.ok) throw new Error((body && body.message) || t("ui.query.error_status", { status: resp.status }));
+    try {
+      body = await resp.json();
+    } catch (e) {
+      // The connection can drop or time out while the body is still arriving.
+      if (e && (e.name === "TimeoutError" || e.name === "AbortError")) throw networkError(e);
+    }
+    const message = body && typeof body.message === "string" ? body.message : null;
+    if (!resp.ok) {
+      if (message) throw new Error(message);
+      if (UNREACHABLE_STATUSES.includes(resp.status)) throw new Error(t("ui.network.unreachable"));
+      throw new Error(t("ui.query.error_status", { status: resp.status }));
+    }
+    if (body === null || typeof body !== "object") throw new Error(t("ui.network.bad_response"));
     return body;
   }
 
