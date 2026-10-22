@@ -103,6 +103,93 @@ def extract_citations(text: str, results: list[SearchResult]) -> list[SearchResu
     return [results[n - 1] for n in seen]
 
 
+# --- citation check -------------------------------------------------------------
+# A cheap lexical sanity check of each [n]: does the cited passage share key terms
+# with the sentence it supports? Logged only; it is not shown in the UI yet.
+
+# A sentence runs up to its end punctuation plus any [n] markers placed right after it.
+_SENTENCE = re.compile(r"[^.!?…\n]+(?:[.!?…]+|$)(?:\s*\[\d+\])*", re.MULTILINE)
+_WORD = re.compile(r"\w+")
+_DIGIT_GROUP = re.compile(r"(?<=\d)\s(?=\d{3}\b)")  # \s also matches no-break spaces
+_STEM_LENGTH = 5
+_STOPWORD_TEXT = """
+это этот эта эти того тоже также если когда чтобы который которая которое которые
+может могут можно нужно должен должна должны после через перед между только всего
+каждый свой своих ваш ваша вашего есть быть будет были было согласно документах
+that this these those with from have been will would should must they their there
+which what when your also only more than into each about according documents
+"""
+_STOPWORDS = frozenset(_STOPWORD_TEXT.split())
+
+
+@dataclass
+class CitationCheck:
+    """One [n] marker. ``status``: ok, unsupported (no shared key term), cross_language
+    (sentence and passage in different languages, so words can't match), no_terms or
+    out_of_range."""
+
+    sentence_index: int
+    source: int
+    status: str
+    terms: int = 0
+    shared: int = 0
+
+
+def key_terms(text: str) -> set[str]:
+    """Numbers and content words, cut to a short prefix so inflected forms still match."""
+    text = _DIGIT_GROUP.sub("", text.lower().replace("ё", "е"))
+    terms = set()
+    for word in _WORD.findall(text):
+        if word.isdigit():
+            terms.add(word)
+        elif len(word) >= 4 and word not in _STOPWORDS:
+            terms.add(word[:_STEM_LENGTH])
+    return terms
+
+
+def check_citations(text: str, results: list[SearchResult]) -> list[CitationCheck]:
+    checks = []
+    for i, match in enumerate(_SENTENCE.finditer(text)):
+        sentence = match.group(0)
+        claim_terms = key_terms(_CITATION.sub(" ", sentence))
+        for marker in _CITATION.finditer(sentence):
+            n = int(marker.group(1))
+            if not 1 <= n <= len(results):
+                checks.append(CitationCheck(i, n, "out_of_range"))
+                continue
+            passage = results[n - 1].chunk.text
+            if not claim_terms:
+                checks.append(CitationCheck(i, n, "no_terms"))
+                continue
+            shared = len(claim_terms & key_terms(passage))
+            if shared:
+                status = "ok"
+            elif detect_language(sentence) != detect_language(passage):
+                status = "cross_language"
+            else:
+                status = "unsupported"
+            checks.append(CitationCheck(i, n, status, len(claim_terms), shared))
+    return checks
+
+
+def log_citation_checks(checks: list[CitationCheck]) -> None:
+    if not checks:
+        return
+    counts: dict[str, int] = {}
+    for check in checks:
+        counts[check.status] = counts.get(check.status, 0) + 1
+    logger.info(
+        "Citation check",
+        extra={
+            "fields": {
+                "citations": len(checks),
+                **{f"citations_{status}": n for status, n in counts.items()},
+                "checks": [vars(c) for c in checks],
+            }
+        },
+    )
+
+
 _NO_ANSWER_PREFIX = re.compile(rf"^\W*{NO_ANSWER}\W*", re.IGNORECASE)
 
 
@@ -121,6 +208,7 @@ def generate_answer(llm: BaseLLMClient, question: str, results: list[SearchResul
     no_answer, explanation = split_no_answer(text)
     if no_answer:
         return Answer(explanation, [], answer_found=False)
+    log_citation_checks(check_citations(text, results))
     return Answer(text, extract_citations(text, results))
 
 
