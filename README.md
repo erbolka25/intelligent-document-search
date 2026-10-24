@@ -3,7 +3,7 @@
 Semantic search and question answering (RAG) over your own `.txt` and `.pdf` documents, with a password-protected web UI in Russian and English.
 
 - **Semantic search** finds passages by meaning, not exact words. It works across languages, so an English query finds Russian text.
-- **Ask** answers a question using **only** the uploaded documents. Every claim cites a numbered source (file and page or chunk), and clicking `[n]` jumps to that passage. If the documents don't contain the answer, it says so instead of guessing. The answer is written in the language of the question.
+- **Ask** answers a question using **only** the uploaded documents. Every claim cites a numbered source (file and page or chunk), and clicking `[n]` jumps to that passage. If the documents don't contain the answer, it says so instead of guessing: a reply with no valid citation is discarded as unsupported. The answer is written in the language of the question.
 - **Never-dies demo**: without an LLM key, or if the LLM call fails, `/ask` falls back to showing the best-matching passages with a short notice.
 
 ```
@@ -151,7 +151,7 @@ All settings come from environment variables or `.env` in the project root (see 
 | `UPLOAD_RATE_PER_MIN` | `30` | Uploads and deletes per session per minute |
 | `INDEX_BACKEND` | `faiss` | `faiss` or `numpy`. Each backend keeps its own index under `data/index/<backend>/` |
 | `EMBEDDING_MODEL` | `intfloat/multilingual-e5-small` | Changing it requires re-uploading documents |
-| `TOP_K` / `MIN_SCORE` | `5` / `0.0` | e5 scores cluster around 0.7–0.9, so tune `MIN_SCORE` carefully |
+| `TOP_K` / `MIN_SCORE` | `5` / `0.75` | Passages below `MIN_SCORE` never reach the LLM. `0.75` is calibrated for the default e5 model on `data/samples` (answerable questions score ≥ 0.78). Re-tune it if you change the model |
 | `MAX_UPLOAD_MB` / `MAX_DOCUMENTS` | `10` / `50` | |
 | `CHUNK_MAX_CHARS` / `CHUNK_OVERLAP_CHARS` | `500` / `100` | |
 | `DATA_DIR` | `data` | Uploads and index location |
@@ -195,7 +195,11 @@ Layout:
 python -m document_search.evaluation --out data/eval/report.json
 ```
 
-This command indexes `data/samples/` and runs the 24 questions in `data/eval/eval_set.json` (21 Russian, 3 English) against both backends. It reports Recall@K, Precision@K and MRR. It also runs a separate latency benchmark on random vectors. A chunk counts as relevant if it comes from the expected file and contains the expected text. This measures **retrieval only**, not the quality of LLM answers.
+This command indexes `data/samples/` and runs the 24 answerable questions in `data/eval/eval_set.json` (21 Russian, 3 English) against both backends. It reports Recall@K, Precision@K and MRR. It also runs a separate latency benchmark on random vectors. A chunk counts as relevant if it comes from the expected file and contains the expected text. This measures **retrieval only**, not the quality of LLM answers.
+
+The eval set also holds 5 questions marked `"answerable": false` that the documents don't answer (office Wi-Fi password, party budget, director's name and so on). They are left out of the ranking metrics and measure refusals: **CorrectRefusal** is the share of them that get no answer, **FalseRefusal** the share of answerable questions that get none. By default a refusal means no chunk cleared `MIN_SCORE`. With `--llm` every question also goes through the full RAG pipeline (one API call each, so it costs money) and a refusal means the answer came back as not found.
+
+At retrieval level, `MIN_SCORE=0.75` refuses 0 of the 5 and none of the answerable ones: these questions are close to the documents' topics and score 0.76–0.83, so the threshold alone can't reject them. Refusing them is the job of the LLM step (the `NO_ANSWER` instruction and the rule that an answer without a valid citation is discarded), which `--llm` measures.
 
 Results from one run (`multilingual-e5-small`, 500/100 chunking, 13 chunks; Windows laptop CPU):
 

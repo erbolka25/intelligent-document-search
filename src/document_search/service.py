@@ -30,6 +30,10 @@ class DocumentLimitError(RuntimeError):
     """The index already holds the maximum number of documents."""
 
 
+class EmbeddingError(RuntimeError):
+    """The embedding model failed, so text cannot be searched or indexed right now."""
+
+
 @dataclass
 class AddResult:
     doc_id: str
@@ -46,8 +50,8 @@ class AskResult:
     answer_found: bool
     citations: list[SearchResult] = field(default_factory=list)
     results: list[SearchResult] = field(default_factory=list)
-    # Why the answer is missing, as a stable code the UI translates:
-    # llm_disabled, or an LLMError code (auth, quota, rate_limit, network, ...).
+    # Why the answer is missing, as a stable code the UI translates: llm_disabled,
+    # embedding_unavailable, or an LLMError code (auth, quota, rate_limit, network, ...).
     notice: str | None = None
 
 
@@ -82,7 +86,11 @@ class RagService:
             overlap_chars=self.settings.chunk_overlap_chars,
         )
         chunks = ingested.chunks
-        vectors = self.embedder.embed_documents([c.text for c in chunks])
+        try:
+            vectors = self.embedder.embed_documents([c.text for c in chunks])
+        except Exception as exc:
+            logger.exception("Embedding %s failed", filename)
+            raise EmbeddingError("The embedding model failed.") from exc
 
         with self._lock:
             if self.index.has_document(doc_id):  # same file uploaded concurrently
@@ -90,21 +98,48 @@ class RagService:
             # Stored under a content-derived name: user input never reaches the path.
             upload_dir = self.settings.upload_dir
             upload_dir.mkdir(parents=True, exist_ok=True)
-            (upload_dir / f"{doc_id}{file_extension(filename)}").write_bytes(data)
-            self.index.add(vectors, chunks)
-            self.index.save(self.settings.index_dir)
+            upload_path = upload_dir / f"{doc_id}{file_extension(filename)}"
+            try:
+                upload_path.write_bytes(data)
+                self.index.add(vectors, chunks)
+                self.index.save(self.settings.index_dir)
+            except Exception:
+                # Undo in memory and on disk, so a failed save never leaves a document
+                # that is searchable now but gone after a restart.
+                logger.exception("Indexing %s failed; rolling back", filename)
+                self.index.remove_document(doc_id)
+                upload_path.unlink(missing_ok=True)
+                self._try_save()
+                raise
         logger.info("Indexed %s (doc_id=%s, %d chunks)", filename, doc_id, len(chunks))
         return AddResult(doc_id, filename, len(chunks), False, ingested.skipped_pages)
 
+    def _try_save(self) -> None:
+        """Best effort: a save interrupted between its two files leaves them mismatched."""
+        try:
+            self.index.save(self.settings.index_dir)
+        except Exception:
+            logger.exception("Could not re-save the index after a rollback")
+
     def search(self, query: str, top_k: int | None = None) -> list[SearchResult]:
-        query_vector = self.embedder.embed_query(query)
+        """Chunks scoring at least ``min_score``; raises EmbeddingError if the model fails."""
+        try:
+            query_vector = self.embedder.embed_query(query)
+        except Exception as exc:
+            logger.exception("Embedding the query failed")
+            raise EmbeddingError("The embedding model failed.") from exc
         with self._lock:
             return self.index.search(
                 query_vector, top_k or self.settings.top_k, min_score=self.settings.min_score
             )
 
     def ask(self, question: str, top_k: int | None = None) -> AskResult:
-        results = self.search(question, top_k)
+        try:
+            results = self.search(question, top_k)
+        except EmbeddingError:
+            return AskResult("retrieval_only", None, False, notice="embedding_unavailable")
+        # search() already dropped chunks below min_score, so without an LLM "found"
+        # means at least one passage cleared the relevance threshold.
         if self.llm is None:
             return AskResult(
                 "retrieval_only",

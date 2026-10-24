@@ -22,5 +22,10 @@
   {"question": "Компенсирует ли компания обеды?", "relevant": [{"filename": "socpaket_i_obuchenie.txt", "contains": "250 сом"}]},
   {"question": "Сколько длится испытательный срок?", "relevant": [{"filename": "socpaket_i_obuchenie.txt", "contains": "длится три месяца"}]},
   {"question": "Оплачивает ли компания курсы повышения квалификации?", "relevant": [{"filename": "socpaket_i_obuchenie.txt", "contains": "40 000 сом"}]},
-  {"question": "are there free language classes", "relevant": [{"filename": "socpaket_i_obuchenie.txt", "contains": "английскому и кыргызскому"}]}
+  {"question": "are there free language classes", "relevant": [{"filename": "socpaket_i_obuchenie.txt", "contains": "английскому и кыргызскому"}]},
+  {"question": "Какой бюджет на корпоратив?", "answerable": false, "relevant": []},
+  {"question": "Какой пароль от Wi-Fi в офисе?", "answerable": false, "relevant": []},
+  {"question": "Как зовут директора компании?", "answerable": false, "relevant": []},
+  {"question": "Компенсирует ли компания абонемент в спортзал?", "answerable": false, "relevant": []},
+  {"question": "How much does parking near the office cost?", "answerable": false, "relevant": []}
 ]

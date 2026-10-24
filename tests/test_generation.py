@@ -12,7 +12,7 @@ from document_search.generation import (
 )
 from document_search.ingestion import Chunk
 from document_search.retrieval import SearchResult, create_index
-from document_search.service import RagService
+from document_search.service import EmbeddingError, RagService
 
 
 class FakeLLM(BaseLLMClient):
@@ -99,6 +99,30 @@ def test_generate_answer_no_answer(reply, explanation):
 def test_answer_mentioning_sentinel_later_is_a_real_answer():
     answer = generate_answer(FakeLLM("Отпуск 28 дней [1]. NO_ANSWER"), "q", RESULTS)
     assert answer.answer_found
+    assert answer.text == "Отпуск 28 дней [1]."
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        "Бюджет на корпоратив составляет 50 000 сом.",  # confident claim, no source
+        "В документах нет этой информации. NO_ANSWER",  # sentinel at the end, nothing cited
+        "Бюджет 50 000 сом [7].",  # only a marker that points at no source
+        "Бюджет 50 000 сом [0].",
+    ],
+)
+def test_answer_without_valid_citation_is_not_found(reply):
+    answer = generate_answer(FakeLLM(reply), "q", RESULTS)
+    assert not answer.answer_found
+    assert answer.text == ""
+    assert answer.citations == []
+
+
+def test_out_of_range_markers_are_removed_from_the_answer():
+    answer = generate_answer(FakeLLM("Отпуск 28 дней [1][9]. Пароль раз в 90 дней [4]."), "q", RESULTS)
+    assert answer.answer_found
+    assert answer.text == "Отпуск 28 дней [1]. Пароль раз в 90 дней."
+    assert [c.chunk.chunk_index for c in answer.citations] == [0]
 
 
 def test_prompt_enforces_context_only_language_and_citations():
@@ -115,8 +139,9 @@ def test_generate_answer_without_context_skips_llm():
     assert not answer.answer_found and llm.calls == []
 
 
-def _service(tmp_path, embedder, llm=None) -> RagService:
-    settings = Settings(data_dir=tmp_path, index_backend="numpy", _env_file=None)
+def _service(tmp_path, embedder, llm=None, min_score=0.0) -> RagService:
+    # The default MIN_SCORE is calibrated for e5; the hashing test embedder scores far lower.
+    settings = Settings(data_dir=tmp_path, index_backend="numpy", min_score=min_score, _env_file=None)
     service = RagService(settings, embedder, create_index("numpy"), llm)
     service.add_document("Отпуск составляет 28 дней. Пароль меняется раз в 90 дней.".encode(), "hr.txt")
     return service
@@ -130,11 +155,113 @@ def test_ask_rag_mode(tmp_path, embedder):
     assert result.citations[0].chunk.filename == "hr.txt"
 
 
+def test_ask_below_min_score_answers_not_found_without_calling_llm(tmp_path, embedder):
+    llm = FakeLLM("Бюджет 50 000 сом [1].")
+    result = _service(tmp_path, embedder, llm, min_score=0.5).ask("квантовая хромодинамика")
+    assert result.mode == "rag"
+    assert not result.answer_found and result.answer is None
+    assert result.results == [] and llm.calls == []
+
+
+def test_ask_uncited_reply_is_not_found(tmp_path, embedder):
+    service = _service(tmp_path, embedder, FakeLLM("Отпуск 35 дней."))
+    result = service.ask("Сколько дней отпуск?")
+    assert result.mode == "rag"
+    assert not result.answer_found and result.answer is None and result.citations == []
+    assert result.results  # the closest passages are still shown, collapsed, in the UI
+
+
+def test_default_min_score_filters_off_topic_e5_scores():
+    # Calibrated on data/samples with multilingual-e5-small: the weakest answerable eval
+    # question scored 0.778, clearly off-topic questions 0.68-0.70.
+    assert 0.70 < Settings(_env_file=None).min_score < 0.778
+
+
 def test_ask_without_llm_is_retrieval_only(tmp_path, embedder):
     result = _service(tmp_path, embedder).ask("отпуск")
     assert result.mode == "retrieval_only"
     assert result.answer is None
     assert result.results and result.notice == "llm_disabled"
+
+
+def test_ask_without_llm_answer_found_follows_min_score(tmp_path, embedder):
+    service = _service(tmp_path, embedder, min_score=0.3)
+    found = service.ask("Сколько дней отпуск?")
+    assert found.mode == "retrieval_only" and found.answer_found and found.results
+    missed = service.ask("квантовая хромодинамика")
+    assert missed.mode == "retrieval_only"
+    assert not missed.answer_found and missed.results == []
+
+
+class BrokenEmbedder:
+    """Indexes like the real thing, then fails on queries (e.g. the model crashed)."""
+
+    def __init__(self, inner) -> None:
+        self.inner = inner
+        self.broken = False
+
+    def embed_documents(self, texts):
+        if self.broken:
+            raise RuntimeError("model crashed")
+        return self.inner.embed_documents(texts)
+
+    def embed_query(self, text):
+        if self.broken:
+            raise RuntimeError("model crashed")
+        return self.inner.embed_query(text)
+
+
+def test_search_wraps_embedding_failure(tmp_path, embedder):
+    broken = BrokenEmbedder(embedder)
+    service = _service(tmp_path, broken)
+    broken.broken = True
+    with pytest.raises(EmbeddingError):
+        service.search("отпуск")
+
+
+def test_ask_degrades_when_embedding_fails(tmp_path, embedder):
+    broken = BrokenEmbedder(embedder)
+    llm = FakeLLM("should not be called")
+    service = _service(tmp_path, broken, llm)
+    broken.broken = True
+    result = service.ask("отпуск")
+    assert result.mode == "retrieval_only" and result.notice == "embedding_unavailable"
+    assert not result.answer_found and result.results == [] and llm.calls == []
+
+
+def test_add_document_embedding_failure_writes_nothing(tmp_path, embedder):
+    broken = BrokenEmbedder(embedder)
+    service = _service(tmp_path, broken)
+    broken.broken = True
+    with pytest.raises(EmbeddingError):
+        service.add_document("Командировка оформляется приказом.".encode(), "trips.txt")
+    assert len(service.documents()) == 1
+    assert len(list(service.settings.upload_dir.iterdir())) == 1
+
+
+def test_add_document_rolls_back_when_save_fails(tmp_path, embedder, monkeypatch):
+    service = _service(tmp_path, embedder)
+    saved_chunks = (service.settings.index_dir / "chunks.json").read_text(encoding="utf-8")
+    real_save = service.index.save
+    calls = []
+
+    def failing_save(directory):
+        calls.append(directory)
+        if len(calls) == 1:
+            raise OSError("disk full")
+        real_save(directory)
+
+    monkeypatch.setattr(service.index, "save", failing_save)
+    data = "Командировка оформляется приказом.".encode()
+    with pytest.raises(OSError):
+        service.add_document(data, "trips.txt")
+
+    assert [d["filename"] for d in service.documents()] == ["hr.txt"]
+    assert len(list(service.settings.upload_dir.iterdir())) == 1
+    assert len(calls) == 2  # the rollback re-saved the restored state
+    assert (service.settings.index_dir / "chunks.json").read_text(encoding="utf-8") == saved_chunks
+    monkeypatch.setattr(service.index, "save", real_save)
+    assert not service.add_document(data, "trips.txt").duplicate  # a retry works
 
 
 def test_ask_falls_back_when_llm_fails(tmp_path, embedder):

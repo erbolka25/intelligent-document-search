@@ -78,7 +78,12 @@ def test_every_server_error_and_notice_code_is_translated():
         app_module, r'error_response\(\s*request, \d+, "(\w+)"'
     )
     errors |= _codes(ingestion, r'IngestionError\(\s*"(\w+)"')
-    notices = _codes(generation, r'LLMError\(\s*"(\w+)"') | {"llm_disabled", "quota", "api"}
+    notices = _codes(generation, r'LLMError\(\s*"(\w+)"') | {
+        "llm_disabled",
+        "quota",
+        "api",
+        "embedding_unavailable",
+    }
     assert errors and notices
     known = flat_keys(catalog()[DEFAULT_LANGUAGE])
     assert {f"errors.{c}" for c in errors} - known == set()

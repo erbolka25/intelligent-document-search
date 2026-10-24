@@ -20,6 +20,7 @@ SYSTEM_PROMPT = f"""You answer questions using ONLY the numbered sources provide
 Rules:
 - Use only facts stated in the sources. Do not use outside knowledge.
 - After every sentence that uses a source, cite it with its number in square brackets, e.g. [1] or [2][3].
+- An answer without at least one citation is discarded.
 - If the sources do not contain the answer, reply with {NO_ANSWER}: followed by one short sentence, in the language of the question, saying the documents do not contain this information. Do not guess.
 - Write the answer in the language of the question, even if the sources are in another language.
 - Be concise. Plain text, no Markdown headings.
@@ -193,12 +194,24 @@ def log_citation_checks(checks: list[CitationCheck]) -> None:
 _NO_ANSWER_PREFIX = re.compile(rf"^\W*{NO_ANSWER}\W*", re.IGNORECASE)
 
 
+_NO_ANSWER_ANYWHERE = re.compile(rf"\s*[*`]*\b{NO_ANSWER}\b[*`:.\-–—]*", re.IGNORECASE)
+# Leading whitespace is part of the match, so dropping a marker leaves no stray space.
+_SPACED_CITATION = re.compile(r"\s*\[(\d+)\]")
+
+
 def split_no_answer(text: str) -> tuple[bool, str]:
     """Return (no_answer, explanation) for a model reply."""
     match = _NO_ANSWER_PREFIX.match(text)
     if not text.strip() or match:
         return True, text[match.end() :].strip() if match else ""
     return False, text
+
+
+def remove_invalid_citations(text: str, n_sources: int) -> str:
+    """Drop [n] markers that point at no source, so the UI never links to nothing."""
+    return _SPACED_CITATION.sub(
+        lambda m: m.group(0) if 1 <= int(m.group(1)) <= n_sources else "", text
+    )
 
 
 def generate_answer(llm: BaseLLMClient, question: str, results: list[SearchResult]) -> Answer:
@@ -208,8 +221,14 @@ def generate_answer(llm: BaseLLMClient, question: str, results: list[SearchResul
     no_answer, explanation = split_no_answer(text)
     if no_answer:
         return Answer(explanation, [], answer_found=False)
+    text = remove_invalid_citations(_NO_ANSWER_ANYWHERE.sub("", text), len(results)).strip()
+    citations = extract_citations(text, results)
+    if not citations:
+        # Nothing ties the reply to the documents: treat it as a hallucination, not an answer.
+        logger.warning("LLM reply has no valid citation; returning no answer")
+        return Answer("", [], answer_found=False)
     log_citation_checks(check_citations(text, results))
-    return Answer(text, extract_citations(text, results))
+    return Answer(text, citations)
 
 
 # Models that accept the server-side refusal fallback ("fallbacks": "default").

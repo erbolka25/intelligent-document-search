@@ -1,3 +1,5 @@
+import json
+
 import numpy as np
 import pytest
 
@@ -102,6 +104,52 @@ def test_save_and_load_roundtrip(tmp_path, embedder, backend):
 
 def test_load_missing_directory_gives_empty_index(tmp_path):
     assert len(load_index("numpy", tmp_path / "nothing")) == 0
+
+
+def _corrupt_chunks_json(path):
+    path.write_text("{not json", encoding="utf-8")
+
+
+def _truncate_vectors(path):
+    path.write_bytes(path.read_bytes()[:20])
+
+
+def _drop_one_chunk(path):
+    path.write_text(json.dumps(json.loads(path.read_text(encoding="utf-8"))[1:]), encoding="utf-8")
+
+
+def _rename_chunk_field(path):
+    rows = json.loads(path.read_text(encoding="utf-8"))
+    rows[0]["texts"] = rows[0].pop("text")
+    path.write_text(json.dumps(rows), encoding="utf-8")
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize(
+    "filename, damage",
+    [
+        ("chunks.json", _corrupt_chunks_json),
+        ("vectors.npy", _truncate_vectors),
+        ("chunks.json", _drop_one_chunk),  # vectors and chunks out of sync
+        ("chunks.json", _rename_chunk_field),
+    ],
+)
+def test_load_broken_files_gives_empty_index_and_keeps_them(tmp_path, embedder, backend, filename, damage):
+    if backend == "faiss":
+        pytest.importorskip("faiss")
+    index = create_index(backend)
+    index.add(embedder.embed_documents(TEXTS), _chunks(TEXTS))
+    index.save(tmp_path)
+    damage(tmp_path / filename)
+
+    restored = load_index(backend, tmp_path)
+
+    assert len(restored) == 0 and restored.documents() == []
+    assert not (tmp_path / "vectors.npy").exists() and not (tmp_path / "chunks.json").exists()
+    assert len(list(tmp_path.glob("*.corrupt-*"))) == 2
+    restored.add(embedder.embed_documents(TEXTS), _chunks(TEXTS))  # usable afterwards
+    restored.save(tmp_path)
+    assert len(load_index(backend, tmp_path)) == len(TEXTS)
 
 
 def test_numpy_and_faiss_agree(embedder):

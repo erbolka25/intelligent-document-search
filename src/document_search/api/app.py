@@ -38,7 +38,12 @@ from document_search.api.schemas import (
 from document_search.config import Settings, get_settings
 from document_search.i18n import request_language, translate
 from document_search.ingestion import SUPPORTED_EXTENSIONS, IngestionError, file_extension
-from document_search.service import DocumentLimitError, RagService, build_service
+from document_search.service import (
+    DocumentLimitError,
+    EmbeddingError,
+    RagService,
+    build_service,
+)
 
 logger = logging.getLogger("document_search.api")
 
@@ -229,6 +234,11 @@ def create_app(service: RagService | None = None, settings: Settings | None = No
         return error_response(
             request, 409, "too_many_documents", max_documents=settings.max_documents
         )
+
+    @app.exception_handler(EmbeddingError)
+    async def embedding_unavailable(request: Request, exc: EmbeddingError):
+        # /ask degrades on its own; /search and uploads have nothing to fall back to.
+        return error_response(request, 503, "embedding_unavailable")
 
     @app.exception_handler(RequestValidationError)
     async def validation_error(request: Request, exc: RequestValidationError):

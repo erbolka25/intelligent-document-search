@@ -93,7 +93,8 @@
       "method_not_allowed": "Это действие не разрешено.",
       "bad_request": "Не удалось прочитать запрос. Проверьте, что тело запроса — JSON в кодировке UTF-8.",
       "validation_error": "Проверьте введённые данные и попробуйте снова.",
-      "internal_error": "Что-то пошло не так на нашей стороне. Код: {request_id}."
+      "internal_error": "Что-то пошло не так на нашей стороне. Код: {request_id}.",
+      "embedding_unavailable": "Поиск временно недоступен: не удалось обработать текст. Повторите позже."
     },
     "notices": {
       "llm_disabled": "Ответы ИИ отключены. Показаны наиболее подходящие фрагменты.",
@@ -104,7 +105,8 @@
       "model": "Сервис ИИ сейчас недоступен. Показаны наиболее подходящие фрагменты.",
       "refusal": "ИИ не смог ответить на этот вопрос. Показаны наиболее подходящие фрагменты.",
       "empty": "ИИ не вернул ответ. Показаны наиболее подходящие фрагменты.",
-      "api": "В сервисе ИИ произошла ошибка. Показаны наиболее подходящие фрагменты."
+      "api": "В сервисе ИИ произошла ошибка. Показаны наиболее подходящие фрагменты.",
+      "embedding_unavailable": "Поиск по документам временно недоступен. Повторите позже."
     }
   },
   "en": {
@@ -201,7 +203,8 @@
       "method_not_allowed": "This action is not allowed.",
       "bad_request": "The request could not be read. Check that the body is valid UTF-8 JSON.",
       "validation_error": "Please check the input and try again.",
-      "internal_error": "Something went wrong on our side. Reference: {request_id}."
+      "internal_error": "Something went wrong on our side. Reference: {request_id}.",
+      "embedding_unavailable": "Search is temporarily unavailable: the text could not be processed. Try again later."
     },
     "notices": {
       "llm_disabled": "AI answers are turned off. Showing the most relevant passages instead.",
@@ -212,7 +215,8 @@
       "model": "The AI service is not available right now. Showing the most relevant passages instead.",
       "refusal": "The AI could not answer this question. Showing the most relevant passages instead.",
       "empty": "The AI returned no answer. Showing the most relevant passages instead.",
-      "api": "The AI service had a problem. Showing the most relevant passages instead."
+      "api": "The AI service had a problem. Showing the most relevant passages instead.",
+      "embedding_unavailable": "Document search is temporarily unavailable. Try again later."
     }
   }
 }

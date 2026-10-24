@@ -18,7 +18,8 @@ HR_TEXT = (
 
 
 def make_client(tmp_path, embedder, llm=None, *, login=True, **overrides) -> TestClient:
-    values = {"app_password": PASSWORD, "session_secret": "test-secret", **overrides}
+    # min_score 0: the default is calibrated for e5, the hashing test embedder scores lower.
+    values = {"app_password": PASSWORD, "session_secret": "test-secret", "min_score": 0.0, **overrides}
     settings = Settings(data_dir=tmp_path, index_backend="numpy", _env_file=None, **values)
     service = RagService(settings, embedder, create_index("numpy"), llm)
     client = TestClient(create_app(service), raise_server_exceptions=False)
@@ -137,6 +138,24 @@ def test_ask_llm_failure_falls_back_with_friendly_message(tmp_path, embedder, co
     assert body["mode"] == "retrieval_only" and body["results"]
     assert body["notice"] == code
     assert "sk-123" not in resp.text and "API_KEY" not in resp.text
+
+
+def test_embedding_failure_gives_503_on_search_and_notice_on_ask(tmp_path, embedder):
+    from tests.test_generation import BrokenEmbedder
+
+    broken = BrokenEmbedder(embedder)
+    client = make_client(tmp_path, broken, FakeLLM("should not be called"))
+    assert upload(client).status_code == 201
+    broken.broken = True
+
+    search = client.post("/search", json={"query": "отпуск"})
+    assert search.status_code == 503 and search.json()["error"] == "embedding_unavailable"
+    assert upload(client, "other.txt", "Другой текст.".encode()).status_code == 503
+    ask = client.post("/ask", json={"question": "отпуск"})
+    assert ask.status_code == 200
+    body = ask.json()
+    assert body["notice"] == "embedding_unavailable" and body["answer_found"] is False
+    assert body["notice_message"]
 
 
 def test_ask_no_relevant_result(tmp_path, embedder):

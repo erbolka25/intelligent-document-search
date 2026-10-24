@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
@@ -127,14 +128,30 @@ class BaseVectorIndex(ABC):
         os.replace(tmp_chunks, directory / CHUNKS_FILE)
 
     def load(self, directory: str | Path) -> None:
-        """Load a previously saved index; a missing directory leaves it empty."""
+        """Load a previously saved index; a missing directory leaves it empty.
+
+        Unreadable or mismatched files also leave it empty, so the server still starts.
+        They are renamed rather than deleted, so the next save cannot overwrite them.
+        """
         directory = Path(directory)
         vectors_path, chunks_path = directory / VECTORS_FILE, directory / CHUNKS_FILE
         if not (vectors_path.exists() and chunks_path.exists()):
             return
-        vectors = np.load(vectors_path)
-        chunks = [Chunk(**d) for d in json.loads(chunks_path.read_text(encoding="utf-8"))]
-        self.add(vectors, chunks)
+        try:
+            vectors = np.load(vectors_path)
+            chunks = [Chunk(**d) for d in json.loads(chunks_path.read_text(encoding="utf-8"))]
+            self.add(vectors, chunks)
+        except (OSError, ValueError, TypeError, KeyError, EOFError) as exc:
+            self.clear()
+            suffix = f".corrupt-{int(time.time())}"
+            for path in (vectors_path, chunks_path):
+                path.replace(path.with_name(path.name + suffix))
+            logger.error(
+                "Index files in %s are unreadable (%s: %s); starting with an empty index. "
+                "The old files were renamed with suffix %s; re-upload the documents.",
+                directory, type(exc).__name__, exc, suffix,
+            )
+            return
         logger.info("Loaded %s index with %d chunks from %s", self.name, len(self), directory)
 
 

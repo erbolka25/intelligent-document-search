@@ -39,7 +39,11 @@ class Settings(BaseSettings):
     index_backend: Literal["numpy", "faiss"] = "faiss"
     embedding_model: str = "intfloat/multilingual-e5-small"
     top_k: int = 5
-    min_score: float = 0.0
+    # Chunks scoring below this never reach the LLM. Calibrated for multilingual-e5-small on
+    # data/samples: answerable questions scored >= 0.78, off-topic ones 0.68-0.70. On-topic
+    # questions the documents don't answer still score 0.76-0.83, so this only drops clear
+    # misses; the citation rule in generation.py catches the rest. Re-tune for other models.
+    min_score: float = 0.75
 
     # Generation (no provider or no key -> retrieval-only mode)
     llm_provider: Literal["openai", "anthropic", "none"] = "openai"
