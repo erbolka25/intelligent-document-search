@@ -30,11 +30,19 @@ _CITATION = re.compile(r"\[(\d+)\]")
 _CYRILLIC = re.compile(r"[а-яё]", re.IGNORECASE)
 _LATIN = re.compile(r"[a-z]", re.IGNORECASE)
 _KYRGYZ_ONLY = re.compile(r"[ңөү]", re.IGNORECASE)
+# Frequent Kyrgyz words that are not Russian words: people often type Kyrgyz without
+# ң/ө/ү, so the letters alone miss many questions. Names like "Болот" are left out.
+KYRGYZ_COMMON_WORDS = (
+    "саламатсызбы", "рахмат", "канча", "барбы", "кантип", "керек", "эмне", "эмнеге",
+    "качан", "кайда", "кайсы", "кандай", "менен", "үчүн", "жок", "болобу", "болсо",
+    "берилет", "сиздер", "сиздин", "кечиресиз", "жардам",
+)
+_KYRGYZ_WORD = re.compile(rf"\b(?:{'|'.join(KYRGYZ_COMMON_WORDS)})\b", re.IGNORECASE)
 
 
 def detect_language(text: str) -> str | None:
     """Guess the question's language from its script: Kyrgyz, Russian, English or None."""
-    if _KYRGYZ_ONLY.search(text):
+    if _KYRGYZ_ONLY.search(text) or _KYRGYZ_WORD.search(text):
         return "Kyrgyz"
     cyrillic, latin = len(_CYRILLIC.findall(text)), len(_LATIN.findall(text))
     if cyrillic > latin:
