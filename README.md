@@ -67,6 +67,8 @@ The index and uploads persist in the `app-data` volume. `data/` is not copied in
 
 `data/samples/` holds four fictional policies of a fictional company, ОсОО «Ала-Тоо Сервис», in Russian, with amounts in som: working time and vacation, information security, business trips, and benefits and training.
 
+For an English-language demo, use `data/samples_en/`: the same four policies of the fictional Ala-Too Services LLC in English, with amounts in USD. Questions answered in them: `How much is the daily allowance for business trips abroad?` (40 USD per day), `How many days of annual paid vacation do employees get?` (28 calendar days), `How often must I change my password?` (every 90 days). Not answered (shows "no answer"): `What is the budget for the company party?`.
+
 1. **Upload.** Drag the four files from `data/samples/` (or the client's documents) onto the upload area. Point out the chunk counts. Upload one file again to show duplicate detection.
 2. **Search by meaning.** On the *Семантический поиск* tab, search `Как часто менять пароль?`. The IT security passage comes first. Then search `how often should I change my password`: the same Russian passage is still on top.
 3. **Ask a question.** On the *Задать вопрос* tab, ask `Сколько платят суточные за границей?`. The answer (3 500 сом в день) cites `[n]`. Click the citation to jump to the passage.

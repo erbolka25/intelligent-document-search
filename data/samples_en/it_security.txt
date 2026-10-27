@@ -1,0 +1,16 @@
+Information Security Rules of Ala-Too Services LLC (fictional company)
+
+1. Passwords
+The password for a work account must be at least 12 characters long and include both letters and digits. The password must be changed every 90 days. Writing the password down on paper or sharing it with colleagues is prohibited.
+
+2. Two-factor authentication
+Signing in to email and work systems requires two-factor authentication through an app on the phone. If the phone is lost, the employee must notify the IT department at 0312 000 111 within one hour so that access can be blocked.
+
+3. Email
+Do not open attachments or links in emails from unknown senders. A suspicious email must be forwarded to security@example.kg and then deleted from the mailbox.
+
+4. Work computers
+Employees may not install software on a work laptop without the IT department's approval. When leaving the workplace, employees must lock the screen. Work files are stored only in the corporate cloud storage, not on USB flash drives.
+
+5. Incidents
+Any security incident, such as a computer infection or a data leak, must be reported to the IT department within one hour.
