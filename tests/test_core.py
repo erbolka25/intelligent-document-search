@@ -1,5 +1,8 @@
 import pytest
-from document_search.core import clean_text, count_tokens_approx, parse_chunk_size , word_count
+
+from document_search.core import clean_text, count_tokens_approx, parse_chunk_size, word_count
+
+
 @pytest.mark.parametrize("dirty_text, expected_clean_text", [
     ("  привет    эрбол ", "привет эрбол"),
     ("ПРИВЕТ", "ПРИВЕТ"),
@@ -65,7 +68,6 @@ def test_is_probably_sentence_end():
     assert is_probably_sentence_end(',') == False
     assert is_probably_sentence_end('a') == False
 def test_count_tokens_approx():
-    from document_search.core import count_tokens_approx
     assert count_tokens_approx("Hello, World!") == 3
     assert count_tokens_approx("This is a test sentence.") == 6
     assert count_tokens_approx("") == 0
