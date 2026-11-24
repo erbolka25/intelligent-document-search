@@ -5,6 +5,7 @@ import pytest
 from document_search.ingestion import (
     IngestionError,
     chunk_text,
+    clean_text,
     clean_unicode,
     compute_doc_id,
     ingest_document,
@@ -12,6 +13,15 @@ from document_search.ingestion import (
     normalize_text,
     split_sentence_spans,
 )
+
+
+@pytest.mark.parametrize("dirty_text, expected_clean_text", [
+    ("  привет    эрбол ", "привет эрбол"),
+    ("ПРИВЕТ", "ПРИВЕТ"),
+    ("привет\n\nмир", "привет мир")
+])
+def test_clean_text(dirty_text, expected_clean_text):
+    assert clean_text(dirty_text) == expected_clean_text
 
 
 def _sentences(text: str) -> list[str]:

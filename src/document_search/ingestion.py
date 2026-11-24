@@ -9,9 +9,13 @@ import unicodedata
 from dataclasses import asdict, dataclass, field
 from pathlib import PurePath
 
-from document_search.core import clean_text
-
 logger = logging.getLogger(__name__)
+
+
+def clean_text(raw_text: str) -> str:
+    """Collapse runs of whitespace (spaces, tabs, line breaks) into single spaces
+    and strip leading/trailing whitespace. Letter case is preserved."""
+    return " ".join(raw_text.split())
 
 SUPPORTED_EXTENSIONS = {".txt", ".pdf"}
 
