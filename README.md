@@ -1,5 +1,7 @@
 # Intelligent Document Searcher
 
+[![CI](https://github.com/erbolka25/intelligent-document-search/actions/workflows/ci.yml/badge.svg)](https://github.com/erbolka25/intelligent-document-search/actions/workflows/ci.yml)
+
 Semantic search and question answering (RAG) over your own `.txt` and `.pdf` documents, with a password-protected web UI in Russian and English.
 
 - **Semantic search** finds passages by meaning, not exact words. It works across languages, so an English query finds Russian text.
