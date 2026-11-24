@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -90,7 +91,9 @@ class EvalCase:
 def load_cases(path: Path, chunks: list[Chunk] | dict[str, list[Chunk]]) -> list[EvalCase]:
     """Load the eval set. ``chunks`` is one corpus (a list, taken as ``ru``) or
     a mapping corpus -> chunks; each question is matched against its own corpus.
-    Entries without ``q_lang``/``corpus`` default to ``ru``."""
+    Entries without ``q_lang``/``corpus`` default to ``ru``. An unanswerable question
+    may list several corpora (``"corpus": ["ky", "ru"]``): it then becomes one case per
+    corpus, i.e. one per scenario."""
     by_corpus = chunks if isinstance(chunks, dict) else {DEFAULT_CORPUS: chunks}
     cases = []
     for item in json.loads(path.read_text(encoding="utf-8")):
@@ -99,8 +102,13 @@ def load_cases(path: Path, chunks: list[Chunk] | dict[str, list[Chunk]]) -> list
         if item.get("answerable", True) is False:
             if item.get("relevant"):
                 raise ValueError(f"Unanswerable question lists relevant chunks: {item['question']!r}")
-            cases.append(EvalCase(item["question"], set(), False, q_lang, corpus))
+            for name in corpus if isinstance(corpus, list) else [corpus]:
+                cases.append(EvalCase(item["question"], set(), False, q_lang, name))
             continue
+        targets = corpus if isinstance(corpus, list) else [corpus]
+        if len(targets) != 1:
+            raise ValueError(f"An answerable question targets one corpus: {item['question']!r}")
+        corpus = targets[0]
         if corpus not in by_corpus:
             raise ValueError(f"Unknown corpus {corpus!r} for: {item['question']!r}")
         relevant = {
@@ -247,17 +255,22 @@ def evaluate_scenarios(
     so one MIN_SCORE can be checked against every language pair."""
     max_k = max(ks)
     indexes = {}
+    start = time.perf_counter()
     for corpus, chunks in chunks_by_corpus.items():
         if chunks:
             index = create_index("numpy")
             index.add(embedder.embed_documents([c.text for c in chunks]), chunks)
             indexes[corpus] = index
+    index_s = time.perf_counter() - start
 
     rows = []
+    query_s = 0.0
     for case in cases:
         if case.corpus not in indexes:
             raise ValueError(f"No documents for corpus {case.corpus!r}: {case.question!r}")
+        start = time.perf_counter()
         hits = indexes[case.corpus].search(embedder.embed_query(case.question), max_k)
+        query_s += time.perf_counter() - start
         ranking = [chunk_key(h.chunk) for h in hits]
         row = {
             "question": case.question,
@@ -278,6 +291,11 @@ def evaluate_scenarios(
     return {
         "min_score": min_score,
         "corpus_chunks": {c: len(ch) for c, ch in chunks_by_corpus.items()},
+        # Wall-clock on this machine: embedding every corpus, and embed + search per question.
+        "timing": {
+            "index_all_corpora_s": index_s,
+            "query_mean_ms": query_s * 1000 / len(cases) if cases else 0.0,
+        },
         "scenarios": {
             s: _group_metrics([r for r in rows if r["scenario"] == s], ks, min_score)
             for s in scenarios
@@ -316,6 +334,15 @@ def evaluate_answers(
         "falsely_refused": [c.question for r, c in pairs if c.answerable and r],
         "errors": errors,
     }
+
+
+def use_utf8_output() -> None:
+    """Print UTF-8 regardless of the console code page: on a cp1251 Windows console
+    or pipe, Kyrgyz letters (ң ө ү) would otherwise raise UnicodeEncodeError."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(encoding="utf-8", errors="replace")
 
 
 def load_corpus(folder: Path, max_chars: int, overlap_chars: int) -> list[Chunk]:
@@ -446,9 +473,31 @@ def main(argv: list[str] | None = None) -> None:
         action="store_true",
         help="also run every question through the configured LLM (one API call each)",
     )
+    parser.add_argument(
+        "--model", default=None, help="embedding model to evaluate (default: EMBEDDING_MODEL)"
+    )
+    parser.add_argument(
+        "--query-prefix",
+        default=None,
+        help='query prefix for --model (default: EMBEDDING_QUERY_PREFIX); "" for none',
+    )
+    parser.add_argument(
+        "--passage-prefix",
+        default=None,
+        help='passage prefix for --model (default: EMBEDDING_PASSAGE_PREFIX); "" for none',
+    )
     args = parser.parse_args(argv)
+    use_utf8_output()
 
     settings = get_settings()
+    # Overrides apply to this evaluation run only; the app keeps its configured model.
+    model = args.model or settings.embedding_model
+    query_prefix = (
+        settings.embedding_query_prefix if args.query_prefix is None else args.query_prefix
+    )
+    passage_prefix = (
+        settings.embedding_passage_prefix if args.passage_prefix is None else args.passage_prefix
+    )
     corpus_dirs = {**DEFAULT_CORPORA, DEFAULT_CORPUS: args.docs}
     for spec in args.corpus:
         lang, sep, folder = spec.partition("=")
@@ -465,7 +514,12 @@ def main(argv: list[str] | None = None) -> None:
     chunks = chunks_by_corpus[DEFAULT_CORPUS]
     cases = [c for c in all_cases if c.corpus == DEFAULT_CORPUS]
     backends = list(INDEX_BACKENDS)
-    embedder = SentenceTransformerEmbedder(settings.embedding_model)
+    embedder = SentenceTransformerEmbedder(
+        model, query_prefix=query_prefix, passage_prefix=passage_prefix
+    )
+    start = time.perf_counter()
+    dim = int(embedder.embed_query("warm-up").shape[0])  # loads the model
+    model_load_s = time.perf_counter() - start
     report = evaluate(embedder, chunks, cases, args.k, backends, min_score=settings.min_score)
     report["by_scenario"] = evaluate_scenarios(
         embedder, chunks_by_corpus, all_cases, args.k, min_score=settings.min_score
@@ -485,13 +539,15 @@ def main(argv: list[str] | None = None) -> None:
             report["llm_refusals"] = evaluate_answers(
                 llm, embedder, chunks, cases, settings.top_k, settings.min_score
             )
-    report["embedding_model"] = settings.embedding_model
+    report["embedding_model"] = model
+    report["embedding_prefixes"] = {"query": query_prefix, "passage": passage_prefix}
+    report["embedding_dim"] = dim
+    report["model_load_s"] = model_load_s
     report["chunking"] = {
         "max_chars": settings.chunk_max_chars,
         "overlap_chars": settings.chunk_overlap_chars,
     }
     if args.bench_n > 0:
-        dim = int(embedder.embed_query("dim").shape[0])
         report["latency_benchmark"] = {
             "n": args.bench_n,
             "dim": dim,

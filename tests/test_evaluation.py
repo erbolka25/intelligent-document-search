@@ -274,3 +274,90 @@ def test_repository_eval_set_matches_its_corpora():
     }
     cases = load_cases(root / "data/eval/eval_set.json", by_corpus)
     assert {c.scenario for c in cases} >= {"ru->ru", "en->ru", "ky->ky", "ky->ru", "ru->ky"}
+
+
+def test_unanswerable_question_with_corpus_list_becomes_one_case_per_corpus(tmp_path):
+    path = tmp_path / "eval.json"
+    item = {"question": "q", "q_lang": "ky", "corpus": ["ky", "ru"], "answerable": False}
+    path.write_text(json.dumps([{**item, "relevant": []}]), encoding="utf-8")
+    cases = load_cases(path, BY_CORPUS)
+    assert [c.scenario for c in cases] == ["ky->ky", "ky->ru"]
+    assert not any(c.answerable for c in cases)
+
+
+def test_answerable_question_cannot_list_several_corpora(tmp_path):
+    path = tmp_path / "eval.json"
+    spec = [{"filename": "it.txt", "contains": "90 дней"}]
+    path.write_text(
+        json.dumps([{"question": "q", "corpus": ["ru", "ky"], "relevant": spec}]), encoding="utf-8"
+    )
+    with pytest.raises(ValueError, match="one corpus"):
+        load_cases(path, BY_CORPUS)
+
+
+def test_use_utf8_output_survives_kyrgyz_on_cp1251(monkeypatch):
+    import io
+    import sys
+
+    from document_search.evaluation import use_utf8_output
+
+    with pytest.raises(UnicodeEncodeError):  # the crash this guards against
+        io.TextIOWrapper(io.BytesIO(), encoding="cp1251").write("өргүү")
+    raw = io.BytesIO()
+    monkeypatch.setattr(sys, "stdout", io.TextIOWrapper(raw, encoding="cp1251"))
+    use_utf8_output()
+    print("Өргүү ң")
+    sys.stdout.flush()
+    assert "Өргүү ң".encode() in raw.getvalue()
+
+
+def test_cli_runs_with_model_and_prefix_overrides(tmp_path, monkeypatch, embedder):
+    import io
+    import sys
+
+    from document_search import evaluation
+
+    ru, ky = tmp_path / "ru", tmp_path / "ky"
+    ru.mkdir()
+    ky.mkdir()
+    (ru / "it.txt").write_text("Пароль менять каждые 90 дней.", encoding="utf-8")
+    (ky / "it_ky.txt").write_text("Сырсөздү ар 90 күн сайын алмаштыруу керек.", encoding="utf-8")
+    eval_set = tmp_path / "eval.json"
+    items = [
+        {"question": "пароль 90 дней", "relevant": [{"filename": "it.txt", "contains": "90"}]},
+        {
+            "question": "сырсөз 90 күн",
+            "q_lang": "ky",
+            "corpus": "ky",
+            "relevant": [{"filename": "it_ky.txt", "contains": "90"}],
+        },
+        {"question": "өргүү?", "q_lang": "ky", "corpus": ["ky", "ru"], "answerable": False},
+    ]
+    eval_set.write_text(json.dumps(items, ensure_ascii=False), encoding="utf-8")
+
+    created = []
+
+    def fake_embedder(model, query_prefix, passage_prefix):
+        created.append((model, query_prefix, passage_prefix))
+        return embedder
+
+    monkeypatch.setattr(evaluation, "SentenceTransformerEmbedder", fake_embedder)
+    raw = io.BytesIO()
+    monkeypatch.setattr(sys, "stdout", io.TextIOWrapper(raw, encoding="cp1251"))
+    out = tmp_path / "report.json"
+    evaluation.main(
+        [
+            "--docs", str(ru), "--corpus", f"ky={ky}", "--corpus", f"en={tmp_path / 'none'}",
+            "--eval-set", str(eval_set), "--bench-n", "0", "--out", str(out),
+            "--model", "BAAI/bge-m3", "--query-prefix", "", "--passage-prefix", "",
+        ]
+    )
+    sys.stdout.flush()
+    assert created == [("BAAI/bge-m3", "", "")]
+    report = json.loads(out.read_text(encoding="utf-8"))
+    assert report["embedding_model"] == "BAAI/bge-m3"
+    assert report["embedding_prefixes"] == {"query": "", "passage": ""}
+    scenarios = report["by_scenario"]["scenarios"]
+    assert scenarios["ky->ru"]["unanswerable"] == 1 and scenarios["ky->ky"]["unanswerable"] == 1
+    assert report["by_scenario"]["timing"]["query_mean_ms"] >= 0
+    assert b"ky->ky" in raw.getvalue()

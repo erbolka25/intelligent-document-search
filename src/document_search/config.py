@@ -38,6 +38,10 @@ class Settings(BaseSettings):
     # Retrieval
     index_backend: Literal["numpy", "faiss"] = "faiss"
     embedding_model: str = "intfloat/multilingual-e5-small"
+    # Prepended to queries / documents before embedding. E5 models need these; set both
+    # to "" for models trained without prefixes (e.g. BAAI/bge-m3).
+    embedding_query_prefix: str = "query: "
+    embedding_passage_prefix: str = "passage: "
     top_k: int = 5
     # Chunks scoring below this never reach the LLM. Calibrated for multilingual-e5-small on
     # data/samples: answerable questions scored >= 0.78, off-topic ones 0.68-0.70. On-topic

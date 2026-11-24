@@ -210,7 +210,11 @@ class RagService:
 
 def build_service(settings: Settings) -> RagService:
     """Wire up real components from settings."""
-    embedder = SentenceTransformerEmbedder(settings.embedding_model)
+    embedder = SentenceTransformerEmbedder(
+        settings.embedding_model,
+        query_prefix=settings.embedding_query_prefix,
+        passage_prefix=settings.embedding_passage_prefix,
+    )
     index = load_index(settings.index_backend, settings.index_dir)
     llm = build_llm_client(
         settings.llm_provider,

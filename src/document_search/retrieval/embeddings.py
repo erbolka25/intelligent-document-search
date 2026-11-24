@@ -33,16 +33,22 @@ class BaseEmbedder(ABC):
 class SentenceTransformerEmbedder(BaseEmbedder):
     """sentence-transformers model, loaded lazily on first use.
 
-    E5 models are trained with "query: " / "passage: " prefixes; they are added
-    automatically when the model name contains "e5".
+    ``query_prefix`` / ``passage_prefix`` are prepended to queries and documents.
+    E5 models are trained with "query: " / "passage: "; models such as bge-m3 use none.
+    They come from EMBEDDING_QUERY_PREFIX / EMBEDDING_PASSAGE_PREFIX in the settings.
     """
 
-    def __init__(self, model_name: str, batch_size: int = 32) -> None:
+    def __init__(
+        self,
+        model_name: str,
+        query_prefix: str = "",
+        passage_prefix: str = "",
+        batch_size: int = 32,
+    ) -> None:
         self.model_name = model_name
         self.batch_size = batch_size
-        uses_e5_prefixes = "e5" in model_name.lower()
-        self._query_prefix = "query: " if uses_e5_prefixes else ""
-        self._passage_prefix = "passage: " if uses_e5_prefixes else ""
+        self._query_prefix = query_prefix
+        self._passage_prefix = passage_prefix
         self._model = None
         self._lock = threading.Lock()
 
