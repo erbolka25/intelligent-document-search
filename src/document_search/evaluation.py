@@ -8,6 +8,12 @@ Relevance is defined by text, not by chunk id, so the eval set survives changes 
 chunking: a chunk is relevant if it comes from the given file and contains the
 given substring.
 
+Each question has a language (``q_lang``) and a target corpus (``corpus``: ru, en or
+ky, defaulting to ru). Every corpus folder gets its own index, and metrics are also
+reported per scenario ``q_lang->corpus`` (e.g. ``ky->ru``) with the distribution of
+top-1 similarity scores, to check whether one MIN_SCORE fits every language pair.
+The backend comparison and --llm run on the ru corpus questions only.
+
 Questions marked ``"answerable": false`` have no answer in the documents. They are left
 out of the ranking metrics and measure refusals instead: CorrectRefusal is the share of
 them that get no answer, FalseRefusal the share of answerable questions that get none.
@@ -59,30 +65,53 @@ def reciprocal_rank(retrieved: list[str], relevant: set[str]) -> float:
     return 0.0
 
 
+DEFAULT_CORPUS = "ru"
+DEFAULT_CORPORA = {
+    "ru": Path("data/samples"),
+    "en": Path("data/samples_en"),
+    "ky": Path("data/samples_ky"),
+}
+
+
 @dataclass
 class EvalCase:
     question: str
     relevant: set[str]
     answerable: bool = True
+    q_lang: str = DEFAULT_CORPUS
+    corpus: str = DEFAULT_CORPUS
+
+    @property
+    def scenario(self) -> str:
+        """Question language -> corpus language, e.g. ``ky->ru``."""
+        return f"{self.q_lang}->{self.corpus}"
 
 
-def load_cases(path: Path, chunks: list[Chunk]) -> list[EvalCase]:
+def load_cases(path: Path, chunks: list[Chunk] | dict[str, list[Chunk]]) -> list[EvalCase]:
+    """Load the eval set. ``chunks`` is one corpus (a list, taken as ``ru``) or
+    a mapping corpus -> chunks; each question is matched against its own corpus.
+    Entries without ``q_lang``/``corpus`` default to ``ru``."""
+    by_corpus = chunks if isinstance(chunks, dict) else {DEFAULT_CORPUS: chunks}
     cases = []
     for item in json.loads(path.read_text(encoding="utf-8")):
+        q_lang = item.get("q_lang", DEFAULT_CORPUS)
+        corpus = item.get("corpus", DEFAULT_CORPUS)
         if item.get("answerable", True) is False:
             if item.get("relevant"):
                 raise ValueError(f"Unanswerable question lists relevant chunks: {item['question']!r}")
-            cases.append(EvalCase(item["question"], set(), answerable=False))
+            cases.append(EvalCase(item["question"], set(), False, q_lang, corpus))
             continue
+        if corpus not in by_corpus:
+            raise ValueError(f"Unknown corpus {corpus!r} for: {item['question']!r}")
         relevant = {
             chunk_key(c)
             for spec in item["relevant"]
-            for c in chunks
+            for c in by_corpus[corpus]
             if c.filename == spec["filename"] and spec["contains"] in c.text
         }
         if not relevant:
             raise ValueError(f"No chunk matches the relevance spec for: {item['question']!r}")
-        cases.append(EvalCase(item["question"], relevant))
+        cases.append(EvalCase(item["question"], relevant, True, q_lang, corpus))
     return cases
 
 
@@ -173,6 +202,91 @@ def evaluate(
     return report
 
 
+def _score_stats(scores: list[float]) -> dict | None:
+    if not scores:
+        return None
+    return {
+        "min": float(np.min(scores)),
+        "median": float(np.median(scores)),
+        "max": float(np.max(scores)),
+    }
+
+
+def _group_metrics(rows: list[dict], ks: list[int], min_score: float | None) -> dict:
+    """Ranking, refusal and top-1 score metrics for one group of per-question rows."""
+    answerable = [r for r in rows if r["answerable"]]
+    unanswerable = [r for r in rows if not r["answerable"]]
+    metrics: dict = {}
+    if answerable:
+        metrics["MRR"] = float(np.mean([r["rr"] for r in answerable]))
+        for k in ks:
+            metrics[f"Recall@{k}"] = float(np.mean([r[f"recall@{k}"] for r in answerable]))
+    if min_score is not None:
+        cases = [EvalCase("", set(), r["answerable"]) for r in rows]
+        metrics.update(refusal_metrics([r["refused"] for r in rows], cases))
+    return {
+        "questions": len(answerable),
+        "unanswerable": len(unanswerable),
+        "metrics": metrics,
+        "top1_score_answerable": _score_stats([r["top1_score"] for r in answerable]),
+        "top1_score_unanswerable_max": (
+            max(r["top1_score"] for r in unanswerable) if unanswerable else None
+        ),
+    }
+
+
+def evaluate_scenarios(
+    embedder: BaseEmbedder,
+    chunks_by_corpus: dict[str, list[Chunk]],
+    cases: list[EvalCase],
+    ks: list[int],
+    min_score: float | None = None,
+) -> dict:
+    """Search every question in its own corpus' index and report metrics per
+    scenario (``q_lang->corpus``) and overall, plus top-1 score distributions,
+    so one MIN_SCORE can be checked against every language pair."""
+    max_k = max(ks)
+    indexes = {}
+    for corpus, chunks in chunks_by_corpus.items():
+        if chunks:
+            index = create_index("numpy")
+            index.add(embedder.embed_documents([c.text for c in chunks]), chunks)
+            indexes[corpus] = index
+
+    rows = []
+    for case in cases:
+        if case.corpus not in indexes:
+            raise ValueError(f"No documents for corpus {case.corpus!r}: {case.question!r}")
+        hits = indexes[case.corpus].search(embedder.embed_query(case.question), max_k)
+        ranking = [chunk_key(h.chunk) for h in hits]
+        row = {
+            "question": case.question,
+            "scenario": case.scenario,
+            "answerable": case.answerable,
+            "top1": ranking[0] if ranking else None,
+            "top1_score": float(hits[0].score) if hits else 0.0,
+            "refused": min_score is not None and not any(h.score >= min_score for h in hits),
+        }
+        if case.answerable:
+            row["rr"] = reciprocal_rank(ranking, case.relevant)
+            for k in ks:
+                row[f"recall@{k}"] = recall_at_k(ranking, case.relevant, k)
+            row["hit_at_1"] = bool(ranking[:1]) and ranking[0] in case.relevant
+        rows.append(row)
+
+    scenarios = sorted({r["scenario"] for r in rows})
+    return {
+        "min_score": min_score,
+        "corpus_chunks": {c: len(ch) for c, ch in chunks_by_corpus.items()},
+        "scenarios": {
+            s: _group_metrics([r for r in rows if r["scenario"] == s], ks, min_score)
+            for s in scenarios
+        },
+        "overall": _group_metrics(rows, ks, min_score),
+        "cases": rows,
+    }
+
+
 def evaluate_answers(
     llm: BaseLLMClient,
     embedder: BaseEmbedder,
@@ -202,6 +316,24 @@ def evaluate_answers(
         "falsely_refused": [c.question for r, c in pairs if c.answerable and r],
         "errors": errors,
     }
+
+
+def load_corpus(folder: Path, max_chars: int, overlap_chars: int) -> list[Chunk]:
+    """Chunk every .txt/.pdf in ``folder``; a missing folder is an empty corpus."""
+    if not folder.is_dir():
+        return []
+    chunks: list[Chunk] = []
+    for path in sorted(folder.iterdir()):
+        if path.suffix.lower() in {".txt", ".pdf"}:
+            chunks.extend(
+                ingest_document(
+                    path.read_bytes(),
+                    path.name,
+                    max_chars=max_chars,
+                    overlap_chars=overlap_chars,
+                ).chunks
+            )
+    return chunks
 
 
 def benchmark_latency(backends: list[str], n: int, dim: int, queries: int = 100) -> dict:
@@ -250,11 +382,35 @@ def _print_report(report: dict, ks: list[int]) -> None:
             print(f"  refused but answerable: {question}")
         for error in llm["errors"]:
             print(f"  LLM error ({error['error']}): {error['question']}")
+    if "by_scenario" in report:
+        _print_scenarios(report["by_scenario"], ks)
     if "latency_benchmark" in report:
         bench = report["latency_benchmark"]
         print(f"\nLatency on {bench['n']} random {bench['dim']}-d vectors (ms/query):")
         for backend, ms in bench["ms_per_query"].items():
             print(f"  {backend:8} {ms:.3f}")
+
+
+def _print_scenarios(data: dict, ks: list[int]) -> None:
+    def fmt(value: float | None) -> str:
+        return f"{value:.3f}" if value is not None else "-"
+
+    sizes = ", ".join(f"{c}={n}" for c, n in data["corpus_chunks"].items())
+    print(f"\nPer scenario (question lang -> corpus), chunks: {sizes}, MIN_SCORE={data['min_score']}")
+    columns = [f"Recall@{k}" for k in ks] + ["MRR", "CorrectRefusal", "FalseRefusal"]
+    print(f"{'scenario':10} {'n':>3} {'unans':>5} " + " ".join(f"{c:>14}" for c in columns))
+    groups = {**data["scenarios"], "overall": data["overall"]}
+    for name, group in groups.items():
+        values = " ".join(f"{fmt(group['metrics'].get(c)):>14}" for c in columns)
+        print(f"{name:10} {group['questions']:3} {group['unanswerable']:5} {values}")
+    print("\nTop-1 similarity score:")
+    print(f"{'scenario':10} {'ans min':>8} {'median':>8} {'max':>8} {'unans max':>10}")
+    for name, group in groups.items():
+        stats = group["top1_score_answerable"] or {}
+        print(
+            f"{name:10} {fmt(stats.get('min')):>8} {fmt(stats.get('median')):>8} "
+            f"{fmt(stats.get('max')):>8} {fmt(group['top1_score_unanswerable_max']):>10}"
+        )
 
 
 def _print_refusals(title: str, metrics: dict, not_refused: list[str]) -> None:
@@ -268,7 +424,17 @@ def _print_refusals(title: str, metrics: dict, not_refused: list[str]) -> None:
 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--docs", type=Path, default=Path("data/samples"))
+    parser.add_argument(
+        "--docs", type=Path, default=DEFAULT_CORPORA["ru"], help="the ru corpus folder"
+    )
+    parser.add_argument(
+        "--corpus",
+        action="append",
+        default=[],
+        metavar="LANG=DIR",
+        help="corpus folder per language (repeatable); defaults: "
+        + ", ".join(f"{lang}={path.as_posix()}" for lang, path in DEFAULT_CORPORA.items()),
+    )
     parser.add_argument("--eval-set", type=Path, default=Path("data/eval/eval_set.json"))
     parser.add_argument("--k", type=int, nargs="+", default=[1, 3, 5])
     parser.add_argument(
@@ -283,21 +449,27 @@ def main(argv: list[str] | None = None) -> None:
     args = parser.parse_args(argv)
 
     settings = get_settings()
-    chunks: list[Chunk] = []
-    for path in sorted(args.docs.iterdir()):
-        if path.suffix.lower() in {".txt", ".pdf"}:
-            doc_chunks = ingest_document(
-                path.read_bytes(),
-                path.name,
-                max_chars=settings.chunk_max_chars,
-                overlap_chars=settings.chunk_overlap_chars,
-            ).chunks
-            chunks.extend(doc_chunks)
+    corpus_dirs = {**DEFAULT_CORPORA, DEFAULT_CORPUS: args.docs}
+    for spec in args.corpus:
+        lang, sep, folder = spec.partition("=")
+        if not sep or not lang or not folder:
+            parser.error(f"--corpus expects LANG=DIR, got {spec!r}")
+        corpus_dirs[lang] = Path(folder)
+    chunks_by_corpus = {
+        lang: load_corpus(folder, settings.chunk_max_chars, settings.chunk_overlap_chars)
+        for lang, folder in corpus_dirs.items()
+    }
 
-    cases = load_cases(args.eval_set, chunks)
+    all_cases = load_cases(args.eval_set, chunks_by_corpus)
+    # Backend comparison and --llm run on the ru corpus, as before the per-language split.
+    chunks = chunks_by_corpus[DEFAULT_CORPUS]
+    cases = [c for c in all_cases if c.corpus == DEFAULT_CORPUS]
     backends = list(INDEX_BACKENDS)
     embedder = SentenceTransformerEmbedder(settings.embedding_model)
     report = evaluate(embedder, chunks, cases, args.k, backends, min_score=settings.min_score)
+    report["by_scenario"] = evaluate_scenarios(
+        embedder, chunks_by_corpus, all_cases, args.k, min_score=settings.min_score
+    )
     if args.llm:
         llm = build_llm_client(
             settings.llm_provider,
