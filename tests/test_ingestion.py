@@ -33,6 +33,17 @@ def test_split_sentences_russian_and_english():
     assert _sentences(text) == ["Первое предложение.", "Второе!", "Third one?", "4 пункт."]
 
 
+def test_split_sentences_kyrgyz_capital_u():
+    text = "Иш күнү 9:00дө башталат. Үй-бүлөлүк өргүү 3 күн."
+    assert _sentences(text) == ["Иш күнү 9:00дө башталат.", "Үй-бүлөлүк өргүү 3 күн."]
+
+
+@pytest.mark.parametrize("second", ["Өргүү 28 күн.", "Ңы тамгасы менен башталат."])
+def test_split_sentences_kyrgyz_capitals_o_and_ng(second):
+    first = "Биринчи сүйлөм бүттү!"
+    assert _sentences(f"{first} {second}") == [first, second]
+
+
 def test_split_sentences_keeps_decimals_and_lowercase_continuations():
     text = "Ставка 3.5 процента. Например, т. е. так."
     assert _sentences(text) == ["Ставка 3.5 процента.", "Например, т. е. так."]

@@ -21,7 +21,7 @@ SUPPORTED_EXTENSIONS = {".txt", ".pdf"}
 
 # A boundary is a paragraph break, or whitespace after terminal punctuation followed
 # by something that looks like the start of a new sentence (capital, digit, quote).
-_SENTENCE_BOUNDARY = re.compile(r"\n|(?<=[.!?…]) (?=[\"'«(\[]?[A-ZА-ЯЁ0-9])")
+_SENTENCE_BOUNDARY = re.compile(r"\n|(?<=[.!?…]) (?=[\"'«(\[]?[A-ZА-ЯЁҢӨҮ0-9])")
 _PARAGRAPH_BREAK = re.compile(r"\n[ \t]*\n")
 
 
