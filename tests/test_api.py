@@ -19,7 +19,12 @@ HR_TEXT = (
 
 def make_client(tmp_path, embedder, llm=None, *, login=True, **overrides) -> TestClient:
     # min_score 0: the default is calibrated for e5, the hashing test embedder scores lower.
-    values = {"app_password": PASSWORD, "session_secret": "test-secret", "min_score": 0.0, **overrides}
+    values = {
+        "app_password": PASSWORD,
+        "session_secret": "test-secret",
+        "min_score": 0.0,
+        **overrides,
+    }
     settings = Settings(data_dir=tmp_path, index_backend="numpy", _env_file=None, **values)
     service = RagService(settings, embedder, create_index("numpy"), llm)
     client = TestClient(create_app(service), raise_server_exceptions=False)

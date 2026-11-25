@@ -17,6 +17,7 @@ def clean_text(raw_text: str) -> str:
     and strip leading/trailing whitespace. Letter case is preserved."""
     return " ".join(raw_text.split())
 
+
 SUPPORTED_EXTENSIONS = {".txt", ".pdf"}
 
 # A boundary is a paragraph break, or whitespace after terminal punctuation followed

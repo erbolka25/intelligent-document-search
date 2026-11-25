@@ -77,7 +77,9 @@ class RagService:
                 existing = next(d for d in self.index.documents() if d["doc_id"] == doc_id)
                 return AddResult(doc_id, existing["filename"], existing["chunks"], duplicate=True)
             if len(self.index.documents()) >= self.settings.max_documents:
-                raise DocumentLimitError(f"Limit of {self.settings.max_documents} documents reached.")
+                raise DocumentLimitError(
+                    f"Limit of {self.settings.max_documents} documents reached."
+                )
 
         ingested = ingest_document(
             data,
@@ -161,9 +163,7 @@ class RagService:
         except Exception:  # never let an SDK surprise break /ask
             logger.exception("Unexpected LLM failure, falling back to retrieval-only")
             return AskResult("retrieval_only", None, bool(results), results=results, notice="api")
-        return AskResult(
-            "rag", answer.text or None, answer.answer_found, answer.citations, results
-        )
+        return AskResult("rag", answer.text or None, answer.answer_found, answer.citations, results)
 
     def delete_document(self, doc_id: str) -> bool:
         """Remove a document from the index and disk; False if it was not indexed."""

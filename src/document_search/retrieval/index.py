@@ -107,7 +107,9 @@ class BaseVectorIndex(ABC):
         """One entry per document: doc_id, filename and chunk count."""
         docs: dict[str, dict] = {}
         for c in self._chunks:
-            entry = docs.setdefault(c.doc_id, {"doc_id": c.doc_id, "filename": c.filename, "chunks": 0})
+            entry = docs.setdefault(
+                c.doc_id, {"doc_id": c.doc_id, "filename": c.filename, "chunks": 0}
+            )
             entry["chunks"] += 1
         return list(docs.values())
 
@@ -149,7 +151,10 @@ class BaseVectorIndex(ABC):
             logger.error(
                 "Index files in %s are unreadable (%s: %s); starting with an empty index. "
                 "The old files were renamed with suffix %s; re-upload the documents.",
-                directory, type(exc).__name__, exc, suffix,
+                directory,
+                type(exc).__name__,
+                exc,
+                suffix,
             )
             return
         logger.info("Loaded %s index with %d chunks from %s", self.name, len(self), directory)

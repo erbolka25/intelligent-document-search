@@ -15,11 +15,10 @@ from document_search.ingestion import (
 )
 
 
-@pytest.mark.parametrize("dirty_text, expected_clean_text", [
-    ("  привет    эрбол ", "привет эрбол"),
-    ("ПРИВЕТ", "ПРИВЕТ"),
-    ("привет\n\nмир", "привет мир")
-])
+@pytest.mark.parametrize(
+    "dirty_text, expected_clean_text",
+    [("  привет    эрбол ", "привет эрбол"), ("ПРИВЕТ", "ПРИВЕТ"), ("привет\n\nмир", "привет мир")],
+)
 def test_clean_text(dirty_text, expected_clean_text):
     assert clean_text(dirty_text) == expected_clean_text
 
@@ -145,7 +144,9 @@ def test_ingest_rejects_bad_input(data, filename):
         ingest_document(data, filename)
 
 
-CYRILLIC_PAGE = "Ежегодный оплачиваемый отпуск составляет 28 календарных дней.\nЖылдык эс алуу 28 күн."
+CYRILLIC_PAGE = (
+    "Ежегодный оплачиваемый отпуск составляет 28 календарных дней.\nЖылдык эс алуу 28 күн."
+)
 
 
 def test_ingest_cyrillic_pdf_is_readable(make_unicode_pdf):

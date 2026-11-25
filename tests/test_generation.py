@@ -60,8 +60,10 @@ def test_detect_language(question, language):
 
 def test_prompt_names_question_language_after_question():
     prompt = build_user_prompt("How many vacation days?", RESULTS)
-    assert prompt.endswith("Write the entire answer in English, "
-                           "translating facts from the sources if they are in another language.")
+    assert prompt.endswith(
+        "Write the entire answer in English, "
+        "translating facts from the sources if they are in another language."
+    )
 
 
 def test_extract_citations_dedupes_and_ignores_out_of_range():
@@ -119,7 +121,9 @@ def test_answer_without_valid_citation_is_not_found(reply):
 
 
 def test_out_of_range_markers_are_removed_from_the_answer():
-    answer = generate_answer(FakeLLM("Отпуск 28 дней [1][9]. Пароль раз в 90 дней [4]."), "q", RESULTS)
+    answer = generate_answer(
+        FakeLLM("Отпуск 28 дней [1][9]. Пароль раз в 90 дней [4]."), "q", RESULTS
+    )
     assert answer.answer_found
     assert answer.text == "Отпуск 28 дней [1]. Пароль раз в 90 дней."
     assert [c.chunk.chunk_index for c in answer.citations] == [0]
@@ -141,9 +145,13 @@ def test_generate_answer_without_context_skips_llm():
 
 def _service(tmp_path, embedder, llm=None, min_score=0.0) -> RagService:
     # The default MIN_SCORE is calibrated for e5; the hashing test embedder scores far lower.
-    settings = Settings(data_dir=tmp_path, index_backend="numpy", min_score=min_score, _env_file=None)
+    settings = Settings(
+        data_dir=tmp_path, index_backend="numpy", min_score=min_score, _env_file=None
+    )
     service = RagService(settings, embedder, create_index("numpy"), llm)
-    service.add_document("Отпуск составляет 28 дней. Пароль меняется раз в 90 дней.".encode(), "hr.txt")
+    service.add_document(
+        "Отпуск составляет 28 дней. Пароль меняется раз в 90 дней.".encode(), "hr.txt"
+    )
     return service
 
 

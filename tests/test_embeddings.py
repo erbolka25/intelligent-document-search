@@ -64,7 +64,9 @@ class RecordingModel:
 
 
 def test_explicit_prefixes_are_prepended():
-    embedder = SentenceTransformerEmbedder("any-model", query_prefix="query: ", passage_prefix="passage: ")
+    embedder = SentenceTransformerEmbedder(
+        "any-model", query_prefix="query: ", passage_prefix="passage: "
+    )
     embedder._model = model = RecordingModel()
     embedder.embed_query("q")
     embedder.embed_documents(["d"])

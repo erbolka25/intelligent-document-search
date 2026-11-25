@@ -203,7 +203,9 @@ def test_load_cases_spec_does_not_match_other_corpus(tmp_path):
 def test_load_cases_rejects_unknown_corpus(tmp_path):
     path = tmp_path / "eval.json"
     spec = [{"filename": "it.txt", "contains": "90 дней"}]
-    path.write_text(json.dumps([{"question": "q", "corpus": "xx", "relevant": spec}]), encoding="utf-8")
+    path.write_text(
+        json.dumps([{"question": "q", "corpus": "xx", "relevant": spec}]), encoding="utf-8"
+    )
     with pytest.raises(ValueError, match="Unknown corpus"):
         load_cases(path, BY_CORPUS)
 
@@ -347,9 +349,24 @@ def test_cli_runs_with_model_and_prefix_overrides(tmp_path, monkeypatch, embedde
     out = tmp_path / "report.json"
     evaluation.main(
         [
-            "--docs", str(ru), "--corpus", f"ky={ky}", "--corpus", f"en={tmp_path / 'none'}",
-            "--eval-set", str(eval_set), "--bench-n", "0", "--out", str(out),
-            "--model", "BAAI/bge-m3", "--query-prefix", "", "--passage-prefix", "",
+            "--docs",
+            str(ru),
+            "--corpus",
+            f"ky={ky}",
+            "--corpus",
+            f"en={tmp_path / 'none'}",
+            "--eval-set",
+            str(eval_set),
+            "--bench-n",
+            "0",
+            "--out",
+            str(out),
+            "--model",
+            "BAAI/bge-m3",
+            "--query-prefix",
+            "",
+            "--passage-prefix",
+            "",
         ]
     )
     sys.stdout.flush()

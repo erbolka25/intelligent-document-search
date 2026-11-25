@@ -101,7 +101,9 @@ def load_cases(path: Path, chunks: list[Chunk] | dict[str, list[Chunk]]) -> list
         corpus = item.get("corpus", DEFAULT_CORPUS)
         if item.get("answerable", True) is False:
             if item.get("relevant"):
-                raise ValueError(f"Unanswerable question lists relevant chunks: {item['question']!r}")
+                raise ValueError(
+                    f"Unanswerable question lists relevant chunks: {item['question']!r}"
+                )
             for name in corpus if isinstance(corpus, list) else [corpus]:
                 cases.append(EvalCase(item["question"], set(), False, q_lang, name))
             continue
@@ -165,20 +167,28 @@ def evaluate(
         hits = [index.search(q, max_k) for q in query_vectors]
         elapsed_ms = (time.perf_counter() - start) * 1000
         rankings = [
-            [chunk_key(r.chunk) for r in h] for h, c in zip(hits, cases, strict=True) if c.answerable
+            [chunk_key(r.chunk) for r in h]
+            for h, c in zip(hits, cases, strict=True)
+            if c.answerable
         ]
 
         metrics = {
             "MRR": float(
                 np.mean(
-                    [reciprocal_rank(r, c.relevant) for r, c in zip(rankings, answerable, strict=True)]
+                    [
+                        reciprocal_rank(r, c.relevant)
+                        for r, c in zip(rankings, answerable, strict=True)
+                    ]
                 )
             )
         }
         for k in ks:
             metrics[f"Recall@{k}"] = float(
                 np.mean(
-                    [recall_at_k(r, c.relevant, k) for r, c in zip(rankings, answerable, strict=True)]
+                    [
+                        recall_at_k(r, c.relevant, k)
+                        for r, c in zip(rankings, answerable, strict=True)
+                    ]
                 )
             )
             metrics[f"Precision@{k}"] = float(
@@ -195,7 +205,9 @@ def evaluate(
             refused = [not any(r.score >= min_score for r in h) for h in hits]
             metrics.update(refusal_metrics(refused, cases))
             not_refused = [
-                c.question for r, c in zip(refused, cases, strict=True) if not c.answerable and not r
+                c.question
+                for r, c in zip(refused, cases, strict=True)
+                if not c.answerable and not r
             ]
         report["backends"][backend] = {
             "metrics": metrics,
@@ -423,7 +435,9 @@ def _print_scenarios(data: dict, ks: list[int]) -> None:
         return f"{value:.3f}" if value is not None else "-"
 
     sizes = ", ".join(f"{c}={n}" for c, n in data["corpus_chunks"].items())
-    print(f"\nPer scenario (question lang -> corpus), chunks: {sizes}, MIN_SCORE={data['min_score']}")
+    print(
+        f"\nPer scenario (question lang -> corpus), chunks: {sizes}, MIN_SCORE={data['min_score']}"
+    )
     columns = [f"Recall@{k}" for k in ks] + ["MRR", "CorrectRefusal", "FalseRefusal"]
     print(f"{'scenario':10} {'n':>3} {'unans':>5} " + " ".join(f"{c:>14}" for c in columns))
     groups = {**data["scenarios"], "overall": data["overall"]}

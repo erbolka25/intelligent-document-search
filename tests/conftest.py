@@ -61,8 +61,7 @@ def build_pdf(pages: list[str]) -> bytes:
     for offset in offsets:
         out += f"{offset:010d} 00000 n \n".encode()
     out += (
-        f"trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\n"
-        f"startxref\n{xref}\n%%EOF\n"
+        f"trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n"
     ).encode()
     return out
 
