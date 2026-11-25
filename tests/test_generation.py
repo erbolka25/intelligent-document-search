@@ -11,7 +11,7 @@ from document_search.generation import (
     generate_answer,
 )
 from document_search.ingestion import Chunk
-from document_search.retrieval import SearchResult, create_index
+from document_search.retrieval import BaseEmbedder, SearchResult, create_index
 from document_search.service import EmbeddingError, RagService
 
 
@@ -181,7 +181,8 @@ def test_ask_uncited_reply_is_not_found(tmp_path, embedder):
 
 def test_default_min_score_filters_off_topic_e5_scores():
     # Calibrated on data/samples with multilingual-e5-small: the weakest answerable eval
-    # question scored 0.778, clearly off-topic questions 0.68-0.70.
+    # question scored 0.778, clearly off-topic questions 0.68-0.70. With the e5-base default
+    # the weakest answerable ru question scores 0.809.
     assert 0.70 < Settings(_env_file=None).min_score < 0.778
 
 
@@ -201,7 +202,7 @@ def test_ask_without_llm_answer_found_follows_min_score(tmp_path, embedder):
     assert not missed.answer_found and missed.results == []
 
 
-class BrokenEmbedder:
+class BrokenEmbedder(BaseEmbedder):
     """Indexes like the real thing, then fails on queries (e.g. the model crashed)."""
 
     def __init__(self, inner) -> None:

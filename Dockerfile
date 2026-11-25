@@ -17,8 +17,9 @@ RUN pip install .
 RUN useradd --create-home app && mkdir -p /app/data /app/.cache && chown -R app /app
 USER app
 
-# Bake the embedding model into the image so the demo works offline (~470 MB).
-ARG EMBEDDING_MODEL=intfloat/multilingual-e5-small
+# Bake the embedding model into the image so the demo works offline (~1.1 GB).
+# Keep it in sync with EMBEDDING_MODEL in config.py, or the container downloads at startup.
+ARG EMBEDDING_MODEL=intfloat/multilingual-e5-base
 RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('${EMBEDDING_MODEL}')"
 
 EXPOSE 8000

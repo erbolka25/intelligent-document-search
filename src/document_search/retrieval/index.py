@@ -19,6 +19,8 @@ logger = logging.getLogger(__name__)
 
 VECTORS_FILE = "vectors.npy"
 CHUNKS_FILE = "chunks.json"
+# Which embedder produced the vectors: model, prefixes and dimension.
+META_FILE = "index_meta.json"
 
 
 @dataclass(frozen=True)
@@ -36,6 +38,9 @@ class BaseVectorIndex(ABC):
     def __init__(self) -> None:
         self._chunks: list[Chunk] = []
         self.dim: int | None = None
+        # Identity of the embedder behind the vectors (see BaseEmbedder.identity), saved
+        # to META_FILE. None: unknown, e.g. an index saved before metadata existed.
+        self.embedding: dict[str, str] | None = None
 
     # --- backend-specific hooks -------------------------------------------
     @abstractmethod
@@ -95,10 +100,23 @@ class BaseVectorIndex(ABC):
             self.add(vectors, chunks)
         return removed
 
+    def replace_vectors(self, vectors: np.ndarray) -> None:
+        """Swap in new vectors for the same chunks, e.g. after a model change."""
+        chunks = list(self._chunks)
+        if len(vectors) != len(chunks):
+            raise ValueError("vectors and chunks must have the same length")
+        self.clear()
+        self.add(vectors, chunks)
+
     def clear(self) -> None:
+        """Drop all chunks and vectors; the embedder identity is kept."""
         self._chunks = []
         self.dim = None
         self._reset_vectors()
+
+    def chunks(self) -> list[Chunk]:
+        """The stored chunks, in vector order."""
+        return list(self._chunks)
 
     def has_document(self, doc_id: str) -> bool:
         return any(c.doc_id == doc_id for c in self._chunks)
@@ -114,7 +132,7 @@ class BaseVectorIndex(ABC):
         return list(docs.values())
 
     def save(self, directory: str | Path) -> None:
-        """Persist vectors and chunk metadata; files are replaced atomically."""
+        """Persist vectors, chunks and embedder metadata; each file is replaced atomically."""
         directory = Path(directory)
         directory.mkdir(parents=True, exist_ok=True)
         vectors = self._all_vectors() if self._chunks else np.zeros((0, 0), dtype=np.float32)
@@ -126,8 +144,24 @@ class BaseVectorIndex(ABC):
         tmp_chunks.write_text(
             json.dumps([c.to_dict() for c in self._chunks], ensure_ascii=False), encoding="utf-8"
         )
+        meta_path = directory / META_FILE
+        tmp_meta = None
+        if self.embedding is not None:
+            tmp_meta = directory / (META_FILE + ".tmp")
+            meta = {
+                "embedding_model": self.embedding["model"],
+                "dimension": self.dim,
+                "query_prefix": self.embedding["query_prefix"],
+                "passage_prefix": self.embedding["passage_prefix"],
+            }
+            tmp_meta.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
         os.replace(tmp_vectors, directory / VECTORS_FILE)
         os.replace(tmp_chunks, directory / CHUNKS_FILE)
+        if tmp_meta is not None:
+            os.replace(tmp_meta, meta_path)
+        else:
+            # Unknown embedder: a metadata file left from earlier would vouch for these vectors.
+            meta_path.unlink(missing_ok=True)
 
     def load(self, directory: str | Path) -> None:
         """Load a previously saved index; a missing directory leaves it empty.
@@ -146,8 +180,9 @@ class BaseVectorIndex(ABC):
         except (OSError, ValueError, TypeError, KeyError, EOFError) as exc:
             self.clear()
             suffix = f".corrupt-{int(time.time())}"
-            for path in (vectors_path, chunks_path):
-                path.replace(path.with_name(path.name + suffix))
+            for path in (vectors_path, chunks_path, directory / META_FILE):
+                if path.exists():
+                    path.replace(path.with_name(path.name + suffix))
             logger.error(
                 "Index files in %s are unreadable (%s: %s); starting with an empty index. "
                 "The old files were renamed with suffix %s; re-upload the documents.",
@@ -157,7 +192,34 @@ class BaseVectorIndex(ABC):
                 suffix,
             )
             return
+        self.embedding = self._load_meta(directory / META_FILE)
         logger.info("Loaded %s index with %d chunks from %s", self.name, len(self), directory)
+
+    def _load_meta(self, path: Path) -> dict[str, str] | None:
+        """Embedder identity from META_FILE; None if missing, unreadable or inconsistent
+        with the loaded vectors, so the caller treats the vectors as from an unknown model."""
+        if not path.exists():
+            return None
+        try:
+            meta = json.loads(path.read_text(encoding="utf-8"))
+            identity = {
+                "model": str(meta["embedding_model"]),
+                "query_prefix": str(meta["query_prefix"]),
+                "passage_prefix": str(meta["passage_prefix"]),
+            }
+            dimension = meta["dimension"]
+        except (OSError, ValueError, TypeError, KeyError) as exc:
+            logger.warning("Ignoring unreadable index metadata %s (%s)", path, exc)
+            return None
+        if self._chunks and dimension != self.dim:
+            logger.warning(
+                "Index metadata %s says dimension %s, but the vectors have %s; ignoring it",
+                path,
+                dimension,
+                self.dim,
+            )
+            return None
+        return identity
 
 
 class NumpyIndex(BaseVectorIndex):

@@ -29,6 +29,12 @@ class BaseEmbedder(ABC):
     def embed_query(self, text: str) -> np.ndarray:
         """Return an array of shape (dim,)."""
 
+    @property
+    def identity(self) -> dict[str, str]:
+        """What determines the vectors: model and prefixes. Stored with the index, so
+        vectors from different models are never mixed. Override for new embedders."""
+        return {"model": type(self).__name__, "query_prefix": "", "passage_prefix": ""}
+
 
 class SentenceTransformerEmbedder(BaseEmbedder):
     """sentence-transformers model, loaded lazily on first use.
@@ -77,6 +83,14 @@ class SentenceTransformerEmbedder(BaseEmbedder):
             show_progress_bar=False,
         )
         return l2_normalize(vectors)
+
+    @property
+    def identity(self) -> dict[str, str]:
+        return {
+            "model": self.model_name,
+            "query_prefix": self._query_prefix,
+            "passage_prefix": self._passage_prefix,
+        }
 
     def embed_documents(self, texts: list[str]) -> np.ndarray:
         return self._encode([self._passage_prefix + t for t in texts])

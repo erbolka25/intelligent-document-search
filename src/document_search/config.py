@@ -37,16 +37,20 @@ class Settings(BaseSettings):
 
     # Retrieval
     index_backend: Literal["numpy", "faiss"] = "faiss"
-    embedding_model: str = "intfloat/multilingual-e5-small"
+    # Chosen in docs/EVALUATION.md ("Embedding model comparison"). Changing the model
+    # re-embeds the stored index at the next startup (see RagService).
+    embedding_model: str = "intfloat/multilingual-e5-base"
     # Prepended to queries / documents before embedding. E5 models need these; set both
     # to "" for models trained without prefixes (e.g. BAAI/bge-m3).
     embedding_query_prefix: str = "query: "
     embedding_passage_prefix: str = "passage: "
     top_k: int = 5
     # Chunks scoring below this never reach the LLM. Calibrated for multilingual-e5-small on
-    # data/samples: answerable questions scored >= 0.78, off-topic ones 0.68-0.70. On-topic
-    # questions the documents don't answer still score 0.76-0.83, so this only drops clear
-    # misses; the citation rule in generation.py catches the rest. Re-tune for other models.
+    # data/samples: answerable questions scored >= 0.78, off-topic ones 0.68-0.70. Rechecked
+    # for e5-base on the full eval set: every answerable question scores >= 0.765. On-topic
+    # questions the documents don't answer still score 0.74-0.85, so this only drops clear
+    # misses; the citation rule in generation.py catches the rest. Re-tune for other models
+    # (bge-m3 scores ~0.25 lower).
     min_score: float = 0.75
 
     # Generation (no provider or no key -> retrieval-only mode)
