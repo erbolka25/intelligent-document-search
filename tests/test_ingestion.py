@@ -5,6 +5,7 @@ import pytest
 from document_search.ingestion import (
     IngestionError,
     chunk_text,
+    clean_text,
     clean_unicode,
     compute_doc_id,
     ingest_document,
@@ -14,6 +15,14 @@ from document_search.ingestion import (
 )
 
 
+@pytest.mark.parametrize(
+    "dirty_text, expected_clean_text",
+    [("  привет    эрбол ", "привет эрбол"), ("ПРИВЕТ", "ПРИВЕТ"), ("привет\n\nмир", "привет мир")],
+)
+def test_clean_text(dirty_text, expected_clean_text):
+    assert clean_text(dirty_text) == expected_clean_text
+
+
 def _sentences(text: str) -> list[str]:
     return [text[s:e] for s, e in split_sentence_spans(text)]
 
@@ -21,6 +30,17 @@ def _sentences(text: str) -> list[str]:
 def test_split_sentences_russian_and_english():
     text = "Первое предложение. Второе! Third one? 4 пункт."
     assert _sentences(text) == ["Первое предложение.", "Второе!", "Third one?", "4 пункт."]
+
+
+def test_split_sentences_kyrgyz_capital_u():
+    text = "Иш күнү 9:00дө башталат. Үй-бүлөлүк өргүү 3 күн."
+    assert _sentences(text) == ["Иш күнү 9:00дө башталат.", "Үй-бүлөлүк өргүү 3 күн."]
+
+
+@pytest.mark.parametrize("second", ["Өргүү 28 күн.", "Ңы тамгасы менен башталат."])
+def test_split_sentences_kyrgyz_capitals_o_and_ng(second):
+    first = "Биринчи сүйлөм бүттү!"
+    assert _sentences(f"{first} {second}") == [first, second]
 
 
 def test_split_sentences_keeps_decimals_and_lowercase_continuations():
@@ -124,7 +144,9 @@ def test_ingest_rejects_bad_input(data, filename):
         ingest_document(data, filename)
 
 
-CYRILLIC_PAGE = "Ежегодный оплачиваемый отпуск составляет 28 календарных дней.\nЖылдык эс алуу 28 күн."
+CYRILLIC_PAGE = (
+    "Ежегодный оплачиваемый отпуск составляет 28 календарных дней.\nЖылдык эс алуу 28 күн."
+)
 
 
 def test_ingest_cyrillic_pdf_is_readable(make_unicode_pdf):

@@ -52,3 +52,45 @@ def test_model_is_loaded_once(fake_sentence_transformers):
     embedder.embed_query("a")
     embedder.embed_documents(["b", "c"])
     assert len(calls) == 1
+
+
+class RecordingModel:
+    def __init__(self):
+        self.texts: list[str] = []
+
+    def encode(self, texts, **kwargs):
+        self.texts.extend(texts)
+        return np.ones((len(texts), 4), dtype=np.float32)
+
+
+def test_explicit_prefixes_are_prepended():
+    embedder = SentenceTransformerEmbedder(
+        "any-model", query_prefix="query: ", passage_prefix="passage: "
+    )
+    embedder._model = model = RecordingModel()
+    embedder.embed_query("q")
+    embedder.embed_documents(["d"])
+    assert model.texts == ["query: q", "passage: d"]
+
+
+def test_no_prefixes_by_default_even_for_e5_names():
+    # No more guessing from the model name: prefixes come only from the settings.
+    embedder = SentenceTransformerEmbedder("intfloat/multilingual-e5-small")
+    embedder._model = model = RecordingModel()
+    embedder.embed_query("q")
+    embedder.embed_documents(["d"])
+    assert model.texts == ["q", "d"]
+
+
+def test_settings_default_to_e5_prefixes_and_read_them_from_env(tmp_path):
+    from document_search.config import Settings
+
+    defaults = Settings(_env_file=None)
+    assert (defaults.embedding_query_prefix, defaults.embedding_passage_prefix) == (
+        "query: ",
+        "passage: ",
+    )
+    env = tmp_path / ".env"
+    env.write_text('EMBEDDING_QUERY_PREFIX="q: "\nEMBEDDING_PASSAGE_PREFIX=""\n', encoding="utf-8")
+    custom = Settings(_env_file=env)
+    assert (custom.embedding_query_prefix, custom.embedding_passage_prefix) == ("q: ", "")

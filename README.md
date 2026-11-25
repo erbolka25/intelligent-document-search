@@ -1,5 +1,7 @@
 # Intelligent Document Searcher
 
+[![CI](https://github.com/erbolka25/intelligent-document-search/actions/workflows/ci.yml/badge.svg)](https://github.com/erbolka25/intelligent-document-search/actions/workflows/ci.yml)
+
 Semantic search and question answering (RAG) over your own `.txt` and `.pdf` documents, with a password-protected web UI in Russian and English.
 
 - **Semantic search** finds passages by meaning, not exact words. It works across languages, so an English query finds Russian text.
@@ -14,7 +16,7 @@ question ─► embedding ─► top-k chunks ─► LLM (OpenAI or Anthropic) w
 | Component | Choice |
 |---|---|
 | API | FastAPI + Pydantic. Static HTML/JS UI at `/`, sign-in page at `/login` |
-| Embeddings | `intfloat/multilingual-e5-small`: multilingual (incl. Russian), 384-dim, runs on CPU |
+| Embeddings | `intfloat/multilingual-e5-base`: multilingual (incl. Russian and Kyrgyz), 768-dim, runs on CPU. Chosen over e5-small and bge-m3 in [docs/EVALUATION.md](docs/EVALUATION.md#embedding-model-comparison) |
 | Vector index | FAISS `IndexFlatIP` or NumPy brute force (both exact cosine search), saved to `data/index/<backend>/` |
 | LLM | OpenAI (default provider) or Anthropic, chosen with `LLM_PROVIDER`. The key comes from `.env` only |
 | UI languages | Russian (default) and English, from `src/document_search/api/static/i18n.json` |
@@ -33,8 +35,8 @@ pip install torch --index-url https://download.pytorch.org/whl/cpu
 # --only-binary avoids pip trying to compile numpy from source on Python 3.13
 pip install --only-binary=:all: -e ".[dev]"
 
-# Download the embedding model once (~470 MB)
-python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('intfloat/multilingual-e5-small')"
+# Download the embedding model once (~1.1 GB)
+python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('intfloat/multilingual-e5-base')"
 
 Copy-Item .env.example .env
 # Edit .env: set APP_PASSWORD, SESSION_SECRET and OPENAI_API_KEY (see "Configuration")
@@ -152,8 +154,8 @@ All settings come from environment variables or `.env` in the project root (see 
 | `ASK_RATE_PER_MIN` | `20` | `/ask` and `/search` calls per session per minute |
 | `UPLOAD_RATE_PER_MIN` | `30` | Uploads and deletes per session per minute |
 | `INDEX_BACKEND` | `faiss` | `faiss` or `numpy`. Each backend keeps its own index under `data/index/<backend>/` |
-| `EMBEDDING_MODEL` | `intfloat/multilingual-e5-small` | Changing it requires re-uploading documents |
-| `TOP_K` / `MIN_SCORE` | `5` / `0.75` | Passages below `MIN_SCORE` never reach the LLM. `0.75` is calibrated for the default e5 model on `data/samples` (answerable questions score ≥ 0.78). Re-tune it if you change the model |
+| `EMBEDDING_MODEL` | `intfloat/multilingual-e5-base` | The index stores which model built it (`index_meta.json`). After a change, the next startup re-embeds all stored chunks with the new model, with no re-upload needed |
+| `TOP_K` / `MIN_SCORE` | `5` / `0.75` | Passages below `MIN_SCORE` never reach the LLM. `0.75` is calibrated for the e5 models (with e5-base, answerable eval questions score ≥ 0.765). Re-tune it if you change the model: bge-m3, for example, scores about 0.25 lower |
 | `MAX_UPLOAD_MB` / `MAX_DOCUMENTS` | `10` / `50` | |
 | `CHUNK_MAX_CHARS` / `CHUNK_OVERLAP_CHARS` | `500` / `100` | |
 | `DATA_DIR` | `data` | Uploads and index location |
@@ -197,26 +199,13 @@ Layout:
 python -m document_search.evaluation --out data/eval/report.json
 ```
 
-This command indexes `data/samples/` and runs the 24 answerable questions in `data/eval/eval_set.json` (21 Russian, 3 English) against both backends. It reports Recall@K, Precision@K and MRR. It also runs a separate latency benchmark on random vectors. A chunk counts as relevant if it comes from the expected file and contains the expected text. This measures **retrieval only**, not the quality of LLM answers.
+`data/eval/eval_set.json` holds 53 questions: 44 answerable and 9 marked `"answerable": false`. Each question has a language (`q_lang`: ru, en, ky) and a target corpus (`corpus`): `data/samples` (ru), `data/samples_en` (en) or `data/samples_ky` (ky). Every corpus gets its own index. The command reports Recall@K, MRR, CorrectRefusal, FalseRefusal and the top-1 similarity score distribution, both overall and per scenario (question language → corpus, e.g. `ky->ru`). The unanswerable Kyrgyz questions are run against both the ky and the ru corpus. A chunk counts as relevant if it comes from the expected file and contains the expected text. This measures **retrieval only**, not the quality of LLM answers.
 
-The eval set also holds 5 questions marked `"answerable": false` that the documents don't answer (office Wi-Fi password, party budget, director's name and so on). They are left out of the ranking metrics and measure refusals: **CorrectRefusal** is the share of them that get no answer, **FalseRefusal** the share of answerable questions that get none. By default a refusal means no chunk cleared `MIN_SCORE`. With `--llm` every question also goes through the full RAG pipeline (one API call each, so it costs money) and a refusal means the answer came back as not found.
+By default a refusal means that no chunk cleared `MIN_SCORE`. With `--llm`, the ru-corpus questions also go through the full RAG pipeline (one API call each, so it costs money), and a refusal means the answer came back as not found. `--model`, `--query-prefix` and `--passage-prefix` evaluate another embedding model without changing the app's settings.
 
-At retrieval level, `MIN_SCORE=0.75` refuses 0 of the 5 and none of the answerable ones: these questions are close to the documents' topics and score 0.76–0.83, so the threshold alone can't reject them. Refusing them is the job of the LLM step (the `NO_ANSWER` instruction and the rule that an answer without a valid citation is discarded), which `--llm` measures.
+The results, observations and limitations are in **[docs/EVALUATION.md](docs/EVALUATION.md)**.
 
-Results from one run (`multilingual-e5-small`, 500/100 chunking, 13 chunks; Windows laptop CPU):
-
-| backend | MRR | Recall@1 | Recall@3 | Recall@5 | Precision@1 | Precision@3 | Precision@5 |
-|---|---|---|---|---|---|---|---|
-| numpy | 0.958 | 0.917 | 0.958 | 0.958 | 0.958 | 0.347 | 0.208 |
-| faiss | 0.958 | 0.917 | 0.958 | 0.958 | 0.958 | 0.347 | 0.208 |
-
-Latency on 50,000 random 384-d vectors: NumPy 6.1 ms/query, FAISS 8.6 ms/query.
-
-How to read this:
-
-- Both backends do **exact** search, so their quality is identical by design. The choice between them is about speed and operations, not accuracy.
-- At this scale, brute force with NumPy is as fast as FAISS `IndexFlatIP`. FAISS pays off with approximate indexes (IVF/HNSW) at millions of vectors, which this demo doesn't need.
-- The eval set is tiny and was written together with the sample documents. Treat it as a smoke test, not as a promise of accuracy on a client's documents. Precision@3/5 is capped low because most questions have only one relevant chunk.
+The command also compares the NumPy and FAISS backends on the ru corpus. Both do **exact** search, so their quality is identical by design, and the choice is about speed and operations. On a separate benchmark with 50,000 random 384-d vectors, NumPy took 6.1 ms/query and FAISS 8.6 ms/query: at this scale, brute force is as fast as `IndexFlatIP`.
 
 ## Known limitations
 
@@ -225,6 +214,6 @@ How to read this:
 - **No HTTPS** in the app itself (see Security).
 - **UI languages**: Russian and English only. Kyrgyz is planned, as one more block in `i18n.json`.
 - **Answer language** is detected from the question's alphabet (Latin → English, Cyrillic → Russian, ң/ө/ү → Kyrgyz). Mixed-language questions follow whichever alphabet dominates.
-- **Small embedding model.** It's fast on CPU, but on close paraphrases the right passage sometimes ranks 2nd–3rd instead of 1st. `/ask` sends the top 5 to the LLM, which compensates. A larger model (`multilingual-e5-base`/`-large`) is a one-line change, after which documents must be re-uploaded.
+- **Cross-lingual ranking is imperfect.** With `multilingual-e5-base`, Kyrgyz questions about Russian documents put the right passage first in 5 of 8 eval questions, and in the top 3 for 7 of 8. `/ask` sends the top 5 to the LLM, which compensates. Changing `EMBEDDING_MODEL` re-embeds the stored index at the next startup.
 - **Sentence splitting is rule-based.** It can split on some abbreviations, and a chunk may end with a dangling section number such as `3.`. The effect on retrieval is minor.
 - **Startup takes about 35–70 s** on a laptop CPU. Most of it is importing PyTorch/transformers (~40 s). Loading the model itself takes ~8 s. After the first download the model loads from the local cache with no network calls, so search works offline. Without internet, `/ask` shows passages with a "could not reach the AI service" notice.

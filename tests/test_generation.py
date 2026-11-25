@@ -11,7 +11,7 @@ from document_search.generation import (
     generate_answer,
 )
 from document_search.ingestion import Chunk
-from document_search.retrieval import SearchResult, create_index
+from document_search.retrieval import BaseEmbedder, SearchResult, create_index
 from document_search.service import EmbeddingError, RagService
 
 
@@ -60,8 +60,10 @@ def test_detect_language(question, language):
 
 def test_prompt_names_question_language_after_question():
     prompt = build_user_prompt("How many vacation days?", RESULTS)
-    assert prompt.endswith("Write the entire answer in English, "
-                           "translating facts from the sources if they are in another language.")
+    assert prompt.endswith(
+        "Write the entire answer in English, "
+        "translating facts from the sources if they are in another language."
+    )
 
 
 def test_extract_citations_dedupes_and_ignores_out_of_range():
@@ -119,7 +121,9 @@ def test_answer_without_valid_citation_is_not_found(reply):
 
 
 def test_out_of_range_markers_are_removed_from_the_answer():
-    answer = generate_answer(FakeLLM("Отпуск 28 дней [1][9]. Пароль раз в 90 дней [4]."), "q", RESULTS)
+    answer = generate_answer(
+        FakeLLM("Отпуск 28 дней [1][9]. Пароль раз в 90 дней [4]."), "q", RESULTS
+    )
     assert answer.answer_found
     assert answer.text == "Отпуск 28 дней [1]. Пароль раз в 90 дней."
     assert [c.chunk.chunk_index for c in answer.citations] == [0]
@@ -141,9 +145,13 @@ def test_generate_answer_without_context_skips_llm():
 
 def _service(tmp_path, embedder, llm=None, min_score=0.0) -> RagService:
     # The default MIN_SCORE is calibrated for e5; the hashing test embedder scores far lower.
-    settings = Settings(data_dir=tmp_path, index_backend="numpy", min_score=min_score, _env_file=None)
+    settings = Settings(
+        data_dir=tmp_path, index_backend="numpy", min_score=min_score, _env_file=None
+    )
     service = RagService(settings, embedder, create_index("numpy"), llm)
-    service.add_document("Отпуск составляет 28 дней. Пароль меняется раз в 90 дней.".encode(), "hr.txt")
+    service.add_document(
+        "Отпуск составляет 28 дней. Пароль меняется раз в 90 дней.".encode(), "hr.txt"
+    )
     return service
 
 
@@ -173,7 +181,8 @@ def test_ask_uncited_reply_is_not_found(tmp_path, embedder):
 
 def test_default_min_score_filters_off_topic_e5_scores():
     # Calibrated on data/samples with multilingual-e5-small: the weakest answerable eval
-    # question scored 0.778, clearly off-topic questions 0.68-0.70.
+    # question scored 0.778, clearly off-topic questions 0.68-0.70. With the e5-base default
+    # the weakest answerable ru question scores 0.809.
     assert 0.70 < Settings(_env_file=None).min_score < 0.778
 
 
@@ -193,7 +202,7 @@ def test_ask_without_llm_answer_found_follows_min_score(tmp_path, embedder):
     assert not missed.answer_found and missed.results == []
 
 
-class BrokenEmbedder:
+class BrokenEmbedder(BaseEmbedder):
     """Indexes like the real thing, then fails on queries (e.g. the model crashed)."""
 
     def __init__(self, inner) -> None:

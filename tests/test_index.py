@@ -16,9 +16,7 @@ TEXTS = [
 
 
 def _chunks(texts: list[str], doc_id: str = "doc1") -> list[Chunk]:
-    return [
-        Chunk(doc_id, f"{doc_id}.txt", None, i, 0, len(t), t) for i, t in enumerate(texts)
-    ]
+    return [Chunk(doc_id, f"{doc_id}.txt", None, i, 0, len(t), t) for i, t in enumerate(texts)]
 
 
 @pytest.fixture(params=BACKENDS)
@@ -134,7 +132,9 @@ def _rename_chunk_field(path):
         ("chunks.json", _rename_chunk_field),
     ],
 )
-def test_load_broken_files_gives_empty_index_and_keeps_them(tmp_path, embedder, backend, filename, damage):
+def test_load_broken_files_gives_empty_index_and_keeps_them(
+    tmp_path, embedder, backend, filename, damage
+):
     if backend == "faiss":
         pytest.importorskip("faiss")
     index = create_index(backend)

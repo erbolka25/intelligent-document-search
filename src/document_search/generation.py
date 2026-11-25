@@ -33,9 +33,28 @@ _KYRGYZ_ONLY = re.compile(r"[ңөү]", re.IGNORECASE)
 # Frequent Kyrgyz words that are not Russian words: people often type Kyrgyz without
 # ң/ө/ү, so the letters alone miss many questions. Names like "Болот" are left out.
 KYRGYZ_COMMON_WORDS = (
-    "саламатсызбы", "рахмат", "канча", "барбы", "кантип", "керек", "эмне", "эмнеге",
-    "качан", "кайда", "кайсы", "кандай", "менен", "үчүн", "жок", "болобу", "болсо",
-    "берилет", "сиздер", "сиздин", "кечиресиз", "жардам",
+    "саламатсызбы",
+    "рахмат",
+    "канча",
+    "барбы",
+    "кантип",
+    "керек",
+    "эмне",
+    "эмнеге",
+    "качан",
+    "кайда",
+    "кайсы",
+    "кандай",
+    "менен",
+    "үчүн",
+    "жок",
+    "болобу",
+    "болсо",
+    "берилет",
+    "сиздер",
+    "сиздин",
+    "кечиресиз",
+    "жардам",
 )
 _KYRGYZ_WORD = re.compile(rf"\b(?:{'|'.join(KYRGYZ_COMMON_WORDS)})\b", re.IGNORECASE)
 
@@ -291,7 +310,9 @@ class AnthropicClient(BaseLLMClient):
                 f"Anthropic API error {exc.status_code} (request {getattr(exc, 'request_id', None)}).",
             ) from exc
         except anthropic.APIConnectionError as exc:
-            raise LLMError("network", "Cannot reach the Anthropic API (network or timeout).") from exc
+            raise LLMError(
+                "network", "Cannot reach the Anthropic API (network or timeout)."
+            ) from exc
 
         if response.stop_reason == "refusal":
             raise LLMError("refusal", "The model declined to answer this request.")

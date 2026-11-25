@@ -47,7 +47,9 @@ def test_every_language_has_the_same_keys_and_placeholders(lang):
     reference, other = catalog()[DEFAULT_LANGUAGE], catalog()[lang]
     assert flat_keys(other) == flat_keys(reference)
     for key in flat_keys(reference):
-        assert placeholders(translate(lang, key)) == placeholders(translate(DEFAULT_LANGUAGE, key)), key
+        assert placeholders(translate(lang, key)) == placeholders(
+            translate(DEFAULT_LANGUAGE, key)
+        ), key
 
 
 def test_ui_keys_used_in_html_and_js_exist():
@@ -66,7 +68,9 @@ def test_html_and_js_contain_no_hardcoded_cyrillic():
     for path in STATIC_DIR.glob("*.*"):
         if path.suffix in {".html", ".js"}:
             text = path.read_text(encoding="utf-8")
-            assert not re.search("[а-яё]", text, re.IGNORECASE), f"{path.name} has untranslated text"
+            assert not re.search("[а-яё]", text, re.IGNORECASE), (
+                f"{path.name} has untranslated text"
+            )
 
 
 def _codes(module, pattern: str) -> set[str]:

@@ -69,6 +69,46 @@ class RagService:
         self.llm = llm
         # One process, one writer: the lock keeps index vectors and metadata in sync.
         self._lock = threading.RLock()
+        self._match_index_to_embedder()
+
+    def _match_index_to_embedder(self) -> None:
+        """Re-embed the stored chunks if they were embedded by another model or prefixes.
+
+        Vectors from different embedders are not comparable, even at the same dimension,
+        so they are never mixed: an index without metadata (saved before it existed) is
+        re-embedded too. The files on disk are replaced only after re-embedding succeeds.
+        """
+        current = self.embedder.identity
+        stored = self.index.embedding
+        if stored == current:
+            return
+        if not len(self.index):
+            self.index.embedding = current
+            return
+        old_dim = self.index.dim
+        logger.warning(
+            "Index in %s was built with %s (dim %s), but the configured embedder is %s: "
+            "re-embedding %d chunks",
+            self.settings.index_dir,
+            stored or "an unknown model (no metadata)",
+            old_dim,
+            current,
+            len(self.index),
+            extra={"fields": {"stored": stored, "configured": current}},
+        )
+        try:
+            vectors = self.embedder.embed_documents([c.text for c in self.index.chunks()])
+        except Exception as exc:
+            raise EmbeddingError("Re-embedding the index failed.") from exc
+        self.index.replace_vectors(vectors)
+        self.index.embedding = current
+        self.index.save(self.settings.index_dir)
+        logger.warning(
+            "Re-embedded %d chunks (dim %s -> %s) and saved the index",
+            len(self.index),
+            old_dim,
+            self.index.dim,
+        )
 
     def add_document(self, data: bytes, filename: str) -> AddResult:
         doc_id = compute_doc_id(data)
@@ -77,7 +117,9 @@ class RagService:
                 existing = next(d for d in self.index.documents() if d["doc_id"] == doc_id)
                 return AddResult(doc_id, existing["filename"], existing["chunks"], duplicate=True)
             if len(self.index.documents()) >= self.settings.max_documents:
-                raise DocumentLimitError(f"Limit of {self.settings.max_documents} documents reached.")
+                raise DocumentLimitError(
+                    f"Limit of {self.settings.max_documents} documents reached."
+                )
 
         ingested = ingest_document(
             data,
@@ -161,9 +203,7 @@ class RagService:
         except Exception:  # never let an SDK surprise break /ask
             logger.exception("Unexpected LLM failure, falling back to retrieval-only")
             return AskResult("retrieval_only", None, bool(results), results=results, notice="api")
-        return AskResult(
-            "rag", answer.text or None, answer.answer_found, answer.citations, results
-        )
+        return AskResult("rag", answer.text or None, answer.answer_found, answer.citations, results)
 
     def delete_document(self, doc_id: str) -> bool:
         """Remove a document from the index and disk; False if it was not indexed."""
@@ -210,7 +250,11 @@ class RagService:
 
 def build_service(settings: Settings) -> RagService:
     """Wire up real components from settings."""
-    embedder = SentenceTransformerEmbedder(settings.embedding_model)
+    embedder = SentenceTransformerEmbedder(
+        settings.embedding_model,
+        query_prefix=settings.embedding_query_prefix,
+        passage_prefix=settings.embedding_passage_prefix,
+    )
     index = load_index(settings.index_backend, settings.index_dir)
     llm = build_llm_client(
         settings.llm_provider,
